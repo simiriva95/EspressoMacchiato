@@ -4,10 +4,11 @@ pub mod ffi;
 pub mod idle;
 pub mod inhibitor;
 pub mod permissions;
+pub mod power;
 
 use std::sync::Arc;
 
-use super::{Degradation, DegradationKind, NullPowerMonitor, Platform};
+use super::{Degradation, DegradationKind, Platform};
 
 pub fn platform() -> Platform {
     Platform {
@@ -15,7 +16,7 @@ pub fn platform() -> Platform {
         simulator: Box::new(activity::MacActivitySimulator::new()),
         idle: Box::new(idle::MacIdleReader),
         conditions: Box::new(conditions::MacConditionProbe::new()),
-        power: Box::new(NullPowerMonitor),
+        power: Box::new(power::MacPowerMonitor::new()),
         preflight: Arc::new(|| {
             if permissions::accessibility_trusted() {
                 Vec::new()

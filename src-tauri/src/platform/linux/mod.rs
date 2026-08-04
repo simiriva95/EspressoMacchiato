@@ -3,13 +3,13 @@ pub mod activity_xtest;
 pub mod conditions;
 pub mod idle;
 pub mod inhibitor;
+pub mod power;
 pub mod session;
 
 use std::sync::Arc;
 
 use super::{
-    ActivitySimulator, ActivityStrategy, Degradation, DegradationKind, NullPowerMonitor, Platform,
-    PlatformError,
+    ActivitySimulator, ActivityStrategy, Degradation, DegradationKind, Platform, PlatformError,
 };
 
 /// Picks uinput first (X11 + Wayland), XTest second (X11 only). The backend
@@ -110,7 +110,7 @@ pub fn platform() -> Platform {
         simulator: Box::new(LinuxActivitySimulator::new()),
         idle,
         conditions: Box::new(conditions::LinuxConditionProbe::new()),
-        power: Box::new(NullPowerMonitor),
+        power: Box::new(power::LinuxPowerMonitor::new()),
         preflight: Arc::new(|| {
             let mut degradations = Vec::new();
             // Only a real blocker degrades: uinput missing while XTest can

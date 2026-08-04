@@ -65,6 +65,32 @@ impl Default for ConditionsConfig {
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
+pub struct AlertsConfig {
+    pub charge_reminder: bool,
+    pub charge_target_percent: u8,
+    pub low_battery: bool,
+    pub low_battery_percent: u8,
+    pub overheat: bool,
+    pub overheat_celsius: f32,
+    pub timer_expired: bool,
+}
+
+impl Default for AlertsConfig {
+    fn default() -> Self {
+        Self {
+            charge_reminder: false,
+            charge_target_percent: 80,
+            low_battery: false,
+            low_battery_percent: 15,
+            overheat: false,
+            overheat_celsius: 45.0,
+            timer_expired: false,
+        }
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[serde(default)]
 pub struct Settings {
     pub schema_version: u32,
     pub interval_secs: u64,
@@ -81,6 +107,10 @@ pub struct Settings {
     /// "system" | "it" | "en"
     pub language: String,
     pub onboarding_done: bool,
+    pub alerts: AlertsConfig,
+    /// macOS menu bar compact text: subset of "countdown" | "battery" |
+    /// "watts", at most two (spec P3).
+    pub menu_bar_metrics: Vec<String>,
 }
 
 impl Default for Settings {
@@ -98,6 +128,8 @@ impl Default for Settings {
             theme: "system".into(),
             language: "system".into(),
             onboarding_done: false,
+            alerts: AlertsConfig::default(),
+            menu_bar_metrics: Vec::new(),
         }
     }
 }

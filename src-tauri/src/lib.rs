@@ -1,9 +1,11 @@
+mod alerts;
 mod commands;
 mod config;
 mod core;
 mod platform;
 mod tray;
 
+use std::collections::VecDeque;
 use std::sync::Mutex;
 use std::time::Duration;
 
@@ -23,6 +25,64 @@ pub struct AppState {
     pub preflight: PreflightFn,
     pub settings: Mutex<Settings>,
     pub saver: tokio::sync::mpsc::UnboundedSender<Settings>,
+}
+
+/// One point in the in-memory metrics history (2 h @ 10 s, never persisted).
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct PowerSample {
+    pub unix_ms: u64,
+    pub percent: Option<f32>,
+    pub watts: Option<f32>,
+    pub temperature_c: Option<f32>,
+    pub cpu_percent: f32,
+}
+
+/// Latest snapshot + rolling history, shared between the sampler task and
+/// the IPC commands.
+#[derive(Default)]
+pub struct PowerHub {
+    pub latest: Mutex<Option<platform::PowerSnapshot>>,
+    pub history: Mutex<VecDeque<PowerSample>>,
+}
+
+const HISTORY_CAPACITY: usize = 720; // 2 h at one sample every 10 s
+const SAMPLE_EVERY: Duration = Duration::from_secs(10);
+
+/// Backend-side language: settings override, else the LANG env var.
+fn backend_language(settings_language: &str) -> String {
+    match settings_language {
+        "it" | "en" => settings_language.to_string(),
+        _ => {
+            let lang = std::env::var("LANG").unwrap_or_default();
+            if lang.to_lowercase().starts_with("it") {
+                "it".into()
+            } else {
+                "en".into()
+            }
+        }
+    }
+}
+
+/// "38m · 85%" next to the tray icon, per the configured metrics (max two).
+fn compose_menu_text(
+    metrics: &[String],
+    snapshot: &platform::PowerSnapshot,
+    remaining_secs: Option<u64>,
+) -> Option<String> {
+    let parts: Vec<String> = metrics
+        .iter()
+        .filter_map(|metric| match metric.as_str() {
+            "countdown" => remaining_secs.map(|s| format!("{}m", s.div_ceil(60))),
+            "battery" => snapshot.percent.map(|p| format!("{}%", p.round() as i64)),
+            "watts" => snapshot.watts.map(|w| format!("{w:.0}W")),
+            _ => None,
+        })
+        .collect();
+    if parts.is_empty() {
+        None
+    } else {
+        Some(parts.join(" · "))
+    }
 }
 
 /// (Re)register the global toggle hotkey. Empty string = no hotkey.
@@ -70,8 +130,13 @@ pub fn run() {
             let (settings, outcome) = config::load(&settings_path);
             let saver = config::spawn_saver(settings_path);
 
-            let platform = platform::current_platform();
+            let mut platform = platform::current_platform();
             let preflight = platform.preflight.clone();
+            // The engine never touches power; the sampler task owns it.
+            let power_monitor = std::mem::replace(
+                &mut platform.power,
+                Box::new(platform::NullPowerMonitor),
+            );
 
             let app_handle = app.handle().clone();
             // One actionable notification per degradation episode, not spam.
@@ -87,6 +152,19 @@ pub fn run() {
                         }
                         "active" | "off" => *notified = false,
                         _ => {}
+                    }
+                    // Opt-in "espresso timer expired" alert.
+                    if status.state == "off" && status.state_detail == "TimerExpired" {
+                        if let Some(state) = app_handle.try_state::<AppState>() {
+                            let (enabled, lang) = {
+                                let s = state.settings.lock().unwrap();
+                                (s.alerts.timer_expired, backend_language(&s.language))
+                            };
+                            if enabled {
+                                let (title, body) = alerts::timer_expired_message(&lang);
+                                tray::notify(&app_handle, &title, &body);
+                            }
+                        }
                     }
                 }
                 let _ = app_handle.emit("engine://event", &event);
@@ -136,7 +214,84 @@ pub fn run() {
                 settings: Mutex::new(settings),
                 saver,
             });
+            app.manage(PowerHub::default());
             tray::create(app.handle())?;
+
+            // Power sampler: 10 s cadence, in-memory 2 h history, alert
+            // evaluation, optional macOS menu bar text. Nothing persisted.
+            let sampler_handle = app.handle().clone();
+            tauri::async_runtime::spawn(async move {
+                let mut alert_engine = alerts::AlertEngine::new();
+                let mut tick = tokio::time::interval(SAMPLE_EVERY);
+                tick.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Delay);
+                loop {
+                    tick.tick().await;
+                    let snapshot = match power_monitor.snapshot() {
+                        Ok(s) => s,
+                        Err(e) => {
+                            tracing::debug!("power snapshot unavailable: {e}");
+                            continue;
+                        }
+                    };
+                    let state = sampler_handle.state::<AppState>();
+                    let hub = sampler_handle.state::<PowerHub>();
+
+                    let sample = PowerSample {
+                        unix_ms: std::time::SystemTime::now()
+                            .duration_since(std::time::UNIX_EPOCH)
+                            .map(|d| d.as_millis() as u64)
+                            .unwrap_or(0),
+                        percent: snapshot.percent,
+                        watts: snapshot.watts,
+                        temperature_c: snapshot.temperature_c,
+                        cpu_percent: snapshot.cpu_percent,
+                    };
+                    {
+                        let mut history = hub.history.lock().unwrap();
+                        history.push_back(sample.clone());
+                        while history.len() > HISTORY_CAPACITY {
+                            history.pop_front();
+                        }
+                    }
+                    *hub.latest.lock().unwrap() = Some(snapshot.clone());
+                    let _ = sampler_handle.emit("power://sample", &sample);
+
+                    let (alerts_cfg, lang, metrics) = {
+                        let s = state.settings.lock().unwrap();
+                        (
+                            s.alerts.clone(),
+                            backend_language(&s.language),
+                            s.menu_bar_metrics.clone(),
+                        )
+                    };
+                    for alert in alert_engine.evaluate(
+                        &alerts_cfg,
+                        &snapshot,
+                        &lang,
+                        std::time::Instant::now(),
+                    ) {
+                        tray::notify(&sampler_handle, &alert.title, &alert.body);
+                    }
+
+                    #[cfg(target_os = "macos")]
+                    {
+                        let text = if metrics.is_empty() {
+                            None
+                        } else {
+                            let remaining = state
+                                .engine
+                                .status()
+                                .await
+                                .ok()
+                                .and_then(|s| s.remaining_secs);
+                            compose_menu_text(&metrics, &snapshot, remaining)
+                        };
+                        tray::set_menu_bar_text(&sampler_handle, text);
+                    }
+                    #[cfg(not(target_os = "macos"))]
+                    let _ = metrics;
+                }
+            });
 
             // Quick panel anchored to the tray icon (macOS only; on Linux
             // the native menu is the primary interface).
@@ -182,6 +337,8 @@ pub fn run() {
             commands::get_settings,
             commands::update_settings,
             commands::open_settings_window,
+            commands::get_power,
+            commands::get_power_history,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

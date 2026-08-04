@@ -43,3 +43,28 @@ extern "C" {
     /// Returns a C `Boolean` (unsigned char).
     pub fn AXIsProcessTrusted() -> u8;
 }
+
+// IORegistry access for AppleSmartBattery (IOKitLib.h).
+pub type IoObject = u32; // io_object_t / io_service_t
+pub type KernReturn = i32;
+
+#[link(name = "IOKit", kind = "framework")]
+extern "C" {
+    /// Returns a CFMutableDictionaryRef matching dictionary (create rule,
+    /// but IOServiceGetMatchingService CONSUMES it).
+    pub fn IOServiceMatching(
+        name: *const std::os::raw::c_char,
+    ) -> core_foundation::dictionary::CFMutableDictionaryRef;
+    /// `main_port` 0 = default. Consumes `matching`.
+    pub fn IOServiceGetMatchingService(
+        main_port: u32,
+        matching: core_foundation::dictionary::CFMutableDictionaryRef,
+    ) -> IoObject;
+    pub fn IORegistryEntryCreateCFProperties(
+        entry: IoObject,
+        properties: *mut core_foundation::dictionary::CFMutableDictionaryRef,
+        allocator: core_foundation::base::CFAllocatorRef,
+        options: u32,
+    ) -> KernReturn;
+    pub fn IOObjectRelease(object: IoObject) -> KernReturn;
+}

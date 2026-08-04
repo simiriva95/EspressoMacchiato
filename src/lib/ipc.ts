@@ -41,6 +41,55 @@ export interface PokeReport {
   idle_after: number | null;
 }
 
+export interface ProcessUsage {
+  name: string;
+  cpu_percent: number;
+}
+
+/** serde's default Duration encoding. */
+export interface DurationSerde {
+  secs: number;
+  nanos: number;
+}
+
+export interface PowerSnapshot {
+  on_ac: boolean;
+  percent: number | null;
+  cycle_count: number | null;
+  design_capacity_mah: number | null;
+  max_capacity_mah: number | null;
+  health_percent: number | null;
+  temperature_c: number | null;
+  voltage_v: number | null;
+  amperage_ma: number | null;
+  watts: number | null;
+  time_to_empty: DurationSerde | null;
+  time_to_full: DurationSerde | null;
+  cpu_percent: number;
+  memory_used_bytes: number;
+  memory_total_bytes: number;
+  uptime_secs: number | null;
+  top_energy_processes: ProcessUsage[];
+}
+
+export interface PowerSample {
+  unix_ms: number;
+  percent: number | null;
+  watts: number | null;
+  temperature_c: number | null;
+  cpu_percent: number;
+}
+
+export interface AlertsConfig {
+  charge_reminder: boolean;
+  charge_target_percent: number;
+  low_battery: boolean;
+  low_battery_percent: number;
+  overheat: boolean;
+  overheat_celsius: number;
+  timer_expired: boolean;
+}
+
 export interface ScheduleWindow {
   days: number[]; // 0 = Monday … 6 = Sunday
   start: string; // "HH:MM"
@@ -74,6 +123,8 @@ export interface Settings {
   theme: string; // "system" | "light" | "dark"
   language: string; // "system" | "it" | "en"
   onboarding_done: boolean;
+  alerts: AlertsConfig;
+  menu_bar_metrics: string[]; // subset of countdown|battery|watts, max 2
 }
 
 export type EngineEvent =
@@ -124,7 +175,49 @@ const demoSettings: Settings = {
   theme: "system",
   language: "system",
   onboarding_done: true,
+  alerts: {
+    charge_reminder: false,
+    charge_target_percent: 80,
+    low_battery: false,
+    low_battery_percent: 15,
+    overheat: false,
+    overheat_celsius: 45,
+    timer_expired: false,
+  },
+  menu_bar_metrics: [],
 };
+
+const demoPower: PowerSnapshot = {
+  on_ac: false,
+  percent: 73,
+  cycle_count: 125,
+  design_capacity_mah: 6249,
+  max_capacity_mah: 5913,
+  health_percent: 94.6,
+  temperature_c: 30.7,
+  voltage_v: 10.8,
+  amperage_ma: -1450,
+  watts: 15.7,
+  time_to_empty: { secs: 3 * 3600, nanos: 0 },
+  time_to_full: null,
+  cpu_percent: 12.4,
+  memory_used_bytes: 12_884_901_888,
+  memory_total_bytes: 25_769_803_776,
+  uptime_secs: 86_400 * 2 + 3600 * 3,
+  top_energy_processes: [
+    { name: "chrome", cpu_percent: 34.1 },
+    { name: "MSTeams", cpu_percent: 12.9 },
+    { name: "node", cpu_percent: 4.2 },
+  ],
+};
+
+const demoHistory: PowerSample[] = Array.from({ length: 240 }, (_, i) => ({
+  unix_ms: Date.now() - (240 - i) * 10_000,
+  percent: 90 - i * 0.07,
+  watts: 12 + 6 * Math.abs(Math.sin(i / 12)),
+  temperature_c: 29 + 3 * Math.abs(Math.sin(i / 40)),
+  cpu_percent: 8 + 20 * Math.abs(Math.sin(i / 7)),
+}));
 
 const browserDemo: typeof tauriIpc = {
   getStatus: () => Promise.resolve(demoStatus),
@@ -145,6 +238,9 @@ const browserDemo: typeof tauriIpc = {
   getSettings: () => Promise.resolve(demoSettings),
   updateSettings: (s) => Promise.resolve(s),
   onEngineEvent: () => Promise.resolve(() => {}),
+  getPower: () => Promise.resolve(demoPower),
+  getPowerHistory: () => Promise.resolve(demoHistory),
+  onPowerSample: () => Promise.resolve(() => {}),
 };
 
 const tauriIpc = {
@@ -162,6 +258,10 @@ const tauriIpc = {
     invoke<Settings>("update_settings", { settings }),
   onEngineEvent: (handler: (e: EngineEvent) => void): Promise<UnlistenFn> =>
     listen<EngineEvent>("engine://event", (event) => handler(event.payload)),
+  getPower: () => invoke<PowerSnapshot | null>("get_power"),
+  getPowerHistory: () => invoke<PowerSample[]>("get_power_history"),
+  onPowerSample: (handler: (s: PowerSample) => void): Promise<UnlistenFn> =>
+    listen<PowerSample>("power://sample", (event) => handler(event.payload)),
 };
 
 export const ipc = isTauri ? tauriIpc : browserDemo;

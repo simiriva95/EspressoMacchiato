@@ -8,6 +8,7 @@ import { StateAnnouncer } from "../components/StateAnnouncer";
 import { EngineControls } from "../features/engine/EngineControls";
 import { IdleMonitor } from "../features/idle-monitor/IdleMonitor";
 import { Onboarding } from "../features/onboarding/Onboarding";
+import { PowerPanel } from "../features/power/PowerPanel";
 import {
   ipc,
   type ActivityStrategy,
@@ -47,6 +48,7 @@ export function SettingsWindow() {
       <EngineControls status={status} settings={settings} />
       <DegradationsCard degradations={status?.degradations ?? []} />
       <IdleMonitor status={status} pokeSignal={pokeSignal} />
+      <PowerPanel />
 
       {settings && (
         <SettingsForm
@@ -251,6 +253,151 @@ function SettingsForm({
             className="mt-1 block min-h-8 rounded border border-line bg-bg p-1"
           />
         </label>
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-semibold">{t("alerts.title")}</legend>
+        <label className="flex min-h-8 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.alerts.charge_reminder}
+            onChange={(e) =>
+              set({
+                alerts: { ...settings.alerts, charge_reminder: e.target.checked },
+              })
+            }
+          />
+          {t("alerts.chargeReminder")}
+        </label>
+        {settings.alerts.charge_reminder && (
+          <label className="ml-6 flex min-h-8 items-center gap-2 text-sm">
+            {t("alerts.atTarget")}
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={settings.alerts.charge_target_percent}
+              onChange={(e) =>
+                set({
+                  alerts: {
+                    ...settings.alerts,
+                    charge_target_percent: Number(e.target.value),
+                  },
+                })
+              }
+              className="min-h-8 w-16 rounded border border-line bg-bg p-1"
+            />
+            %
+          </label>
+        )}
+        <label className="flex min-h-8 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.alerts.low_battery}
+            onChange={(e) =>
+              set({
+                alerts: { ...settings.alerts, low_battery: e.target.checked },
+              })
+            }
+          />
+          {t("alerts.lowBattery")}
+        </label>
+        {settings.alerts.low_battery && (
+          <label className="ml-6 flex min-h-8 items-center gap-2 text-sm">
+            {t("alerts.below")}
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={settings.alerts.low_battery_percent}
+              onChange={(e) =>
+                set({
+                  alerts: {
+                    ...settings.alerts,
+                    low_battery_percent: Number(e.target.value),
+                  },
+                })
+              }
+              className="min-h-8 w-16 rounded border border-line bg-bg p-1"
+            />
+            %
+          </label>
+        )}
+        <label className="flex min-h-8 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.alerts.overheat}
+            onChange={(e) =>
+              set({
+                alerts: { ...settings.alerts, overheat: e.target.checked },
+              })
+            }
+          />
+          {t("alerts.overheat")}
+        </label>
+        {settings.alerts.overheat && (
+          <label className="ml-6 flex min-h-8 items-center gap-2 text-sm">
+            {t("alerts.above")}
+            <input
+              type="number"
+              min={30}
+              max={90}
+              value={settings.alerts.overheat_celsius}
+              onChange={(e) =>
+                set({
+                  alerts: {
+                    ...settings.alerts,
+                    overheat_celsius: Number(e.target.value),
+                  },
+                })
+              }
+              className="min-h-8 w-16 rounded border border-line bg-bg p-1"
+            />
+            °C
+          </label>
+        )}
+        <label className="flex min-h-8 items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={settings.alerts.timer_expired}
+            onChange={(e) =>
+              set({
+                alerts: { ...settings.alerts, timer_expired: e.target.checked },
+              })
+            }
+          />
+          {t("alerts.timerExpired")}
+        </label>
+      </fieldset>
+
+      <fieldset className="space-y-2">
+        <legend className="text-sm font-semibold">
+          {t("settings.menuBarText")}
+        </legend>
+        <p className="text-xs text-ink-2">{t("settings.menuBarTextHelp")}</p>
+        {(["countdown", "battery", "watts"] as const).map((metric) => {
+          const selected = settings.menu_bar_metrics.includes(metric);
+          return (
+            <label
+              key={metric}
+              className="flex min-h-8 items-center gap-2 text-sm"
+            >
+              <input
+                type="checkbox"
+                checked={selected}
+                disabled={!selected && settings.menu_bar_metrics.length >= 2}
+                onChange={(e) =>
+                  set({
+                    menu_bar_metrics: e.target.checked
+                      ? [...settings.menu_bar_metrics, metric]
+                      : settings.menu_bar_metrics.filter((m) => m !== metric),
+                  })
+                }
+              />
+              {t(`settings.menuBarMetric.${metric}`)}
+            </label>
+          );
+        })}
       </fieldset>
 
       <fieldset className="space-y-2">

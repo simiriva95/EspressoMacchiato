@@ -124,8 +124,47 @@ impl Default for ProcessMatcher {
 }
 
 pub trait PowerMonitor: Send + Sync {
-    #[allow(dead_code)] // wired to the energy panel in M4
     fn snapshot(&self) -> Result<PowerSnapshot, PlatformError>;
+}
+
+/// Cross-platform system metrics (CPU, RAM, uptime, top processes) via
+/// sysinfo, shared by the real PowerMonitors. Keeps its own System so CPU
+/// deltas are measured between successive samples.
+pub struct SystemMetrics(std::sync::Mutex<sysinfo::System>);
+
+impl SystemMetrics {
+    pub fn new() -> Self {
+        Self(std::sync::Mutex::new(sysinfo::System::new()))
+    }
+
+    /// Fills the system-side fields of a snapshot in place.
+    pub fn fill(&self, snapshot: &mut PowerSnapshot) {
+        let mut sys = self.0.lock().unwrap();
+        sys.refresh_cpu_usage();
+        sys.refresh_memory();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        snapshot.cpu_percent = sys.global_cpu_usage();
+        snapshot.memory_used_bytes = sys.used_memory();
+        snapshot.memory_total_bytes = sys.total_memory();
+        snapshot.uptime_secs = Some(sysinfo::System::uptime());
+        let mut processes: Vec<ProcessUsage> = sys
+            .processes()
+            .values()
+            .map(|p| ProcessUsage {
+                name: p.name().to_string_lossy().into_owned(),
+                cpu_percent: p.cpu_usage(),
+            })
+            .collect();
+        processes.sort_by(|a, b| b.cpu_percent.total_cmp(&a.cpu_percent));
+        processes.truncate(3);
+        snapshot.top_energy_processes = processes;
+    }
+}
+
+impl Default for SystemMetrics {
+    fn default() -> Self {
+        Self::new()
+    }
 }
 
 #[derive(Debug, Clone, Default, serde::Serialize)]
@@ -153,6 +192,8 @@ pub struct PowerSnapshot {
     pub cpu_percent: f32,
     pub memory_used_bytes: u64,
     pub memory_total_bytes: u64,
+    /// Not in the spec's original struct, but the panel shows uptime (P4).
+    pub uptime_secs: Option<u64>,
     pub top_energy_processes: Vec<ProcessUsage>,
 }
 

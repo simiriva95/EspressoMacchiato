@@ -143,6 +143,19 @@ pub fn sync(app: &AppHandle, status: &StatusSnapshot) {
         .set_tooltip(Some(format!("EspressoMacchiato — {label}")));
 }
 
+/// Compact text next to the tray icon (macOS menu bar only).
+#[cfg(target_os = "macos")]
+pub fn set_menu_bar_text(app: &AppHandle, text: Option<String>) {
+    if let Some(handles) = app.try_state::<TrayHandles>() {
+        let _ = handles.tray.set_title(text);
+    }
+}
+
+/// Plain notification helper (alerts, timer expiry).
+pub fn notify(app: &AppHandle, title: &str, body: &str) {
+    let _ = app.notification().builder().title(title).body(body).show();
+}
+
 /// One actionable notification when entering Degraded (deduped by caller).
 pub fn notify_degraded(app: &AppHandle, status: &StatusSnapshot) {
     let body = status

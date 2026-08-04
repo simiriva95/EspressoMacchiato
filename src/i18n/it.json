@@ -87,7 +87,44 @@
     "themeDark": "Scuro",
     "language": "Lingua",
     "languageSystem": "Sistema",
-    "reopenOnboarding": "Rivedi la configurazione iniziale"
+    "reopenOnboarding": "Rivedi la configurazione iniziale",
+    "menuBarText": "Testo nella barra dei menu (macOS)",
+    "menuBarTextHelp": "Massimo due metriche accanto all'icona.",
+    "menuBarMetric": {
+      "countdown": "Tempo rimanente del timer",
+      "battery": "Percentuale batteria",
+      "watts": "Potenza (W)"
+    }
+  },
+  "power": {
+    "title": "Energia",
+    "notAvailable": "non disponibile",
+    "onAc": "collegato alla corrente",
+    "onBattery": "a batteria",
+    "percentHistory": "Andamento carica (ultime 2 ore)",
+    "wattsHistory": "Potenza (ultime 2 ore)",
+    "health": "Salute batteria",
+    "cycles": "Cicli",
+    "temperature": "Temperatura",
+    "voltage": "Voltaggio",
+    "watts": "Potenza",
+    "timeToEmpty": "Autonomia stimata",
+    "timeToFull": "Alla carica completa",
+    "system": "Sistema",
+    "cpu": "CPU",
+    "memory": "Memoria",
+    "uptime": "Acceso da",
+    "topProcesses": "Processi più pesanti"
+  },
+  "alerts": {
+    "title": "Avvisi",
+    "chargeReminder": "Ricordami di staccare il caricatore",
+    "atTarget": "al",
+    "lowBattery": "Avvisami quando la batteria è in riserva",
+    "below": "sotto il",
+    "overheat": "Avvisami se la batteria scalda troppo",
+    "above": "sopra i",
+    "timerExpired": "Avvisami quando il timer scade"
   },
   "days": {
     "0": "Lun",

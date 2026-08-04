@@ -87,7 +87,44 @@
     "themeDark": "Dark",
     "language": "Language",
     "languageSystem": "System",
-    "reopenOnboarding": "Review the initial setup"
+    "reopenOnboarding": "Review the initial setup",
+    "menuBarText": "Menu bar text (macOS)",
+    "menuBarTextHelp": "At most two metrics next to the icon.",
+    "menuBarMetric": {
+      "countdown": "Timer countdown",
+      "battery": "Battery percentage",
+      "watts": "Power draw (W)"
+    }
+  },
+  "power": {
+    "title": "Energy",
+    "notAvailable": "not available",
+    "onAc": "plugged in",
+    "onBattery": "on battery",
+    "percentHistory": "Charge trend (last 2 hours)",
+    "wattsHistory": "Power draw (last 2 hours)",
+    "health": "Battery health",
+    "cycles": "Cycles",
+    "temperature": "Temperature",
+    "voltage": "Voltage",
+    "watts": "Power",
+    "timeToEmpty": "Estimated runtime",
+    "timeToFull": "Until fully charged",
+    "system": "System",
+    "cpu": "CPU",
+    "memory": "Memory",
+    "uptime": "Uptime",
+    "topProcesses": "Heaviest processes"
+  },
+  "alerts": {
+    "title": "Alerts",
+    "chargeReminder": "Remind me to unplug the charger",
+    "atTarget": "at",
+    "lowBattery": "Warn me when the battery runs low",
+    "below": "below",
+    "overheat": "Warn me if the battery runs hot",
+    "above": "above",
+    "timerExpired": "Notify me when the timer expires"
   },
   "days": {
     "0": "Mon",

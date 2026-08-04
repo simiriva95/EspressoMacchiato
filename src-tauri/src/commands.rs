@@ -84,6 +84,18 @@ pub fn get_settings(state: State<'_, AppState>) -> Settings {
     state.settings.lock().unwrap().clone()
 }
 
+/// Latest full power snapshot (None until the first sample lands).
+#[tauri::command]
+pub fn get_power(hub: State<'_, crate::PowerHub>) -> Option<crate::platform::PowerSnapshot> {
+    hub.latest.lock().unwrap().clone()
+}
+
+/// In-memory history for the sparklines (2 h @ 10 s, never persisted).
+#[tauri::command]
+pub fn get_power_history(hub: State<'_, crate::PowerHub>) -> Vec<crate::PowerSample> {
+    hub.history.lock().unwrap().iter().cloned().collect()
+}
+
 /// Single write path for all settings: sanitize, apply to the engine and
 /// the OS (hotkey, autostart), persist (debounced). Returns the sanitized
 /// settings so the UI reflects clamping.
@@ -96,6 +108,11 @@ pub fn update_settings(
     let mut new = settings;
     new.schema_version = defaults::SCHEMA_VERSION;
     new.interval_secs = clamp_interval_secs(new.interval_secs);
+    new.menu_bar_metrics
+        .retain(|m| matches!(m.as_str(), "countdown" | "battery" | "watts"));
+    new.menu_bar_metrics.truncate(2);
+    new.alerts.charge_target_percent = new.alerts.charge_target_percent.clamp(1, 100);
+    new.alerts.low_battery_percent = new.alerts.low_battery_percent.clamp(1, 100);
 
     let old = state.settings.lock().unwrap().clone();
 
