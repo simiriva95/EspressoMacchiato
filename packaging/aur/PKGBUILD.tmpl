@@ -1,0 +1,20 @@
+# AUR PKGBUILD template. Fill {{VERSION}} and {{SHA256_DEB}} from the
+# release, then publish manually (see CONTRIBUTING).
+# Maintainer: EspressoMacchiato contributors
+pkgname=espresso-macchiato-bin
+pkgver={{VERSION}}
+pkgrel=1
+pkgdesc="Keep your machine awake and present — tray keep-awake with a real idle-counter reset"
+arch=('x86_64')
+url="https://github.com/simiriva95/EspressoMacchiato"
+license=('MIT')
+depends=('webkit2gtk-4.1' 'libayatana-appindicator')
+provides=('espresso-macchiato')
+conflicts=('espresso-macchiato')
+source=("${url}/releases/download/v${pkgver}/EspressoMacchiato_${pkgver}_amd64.deb")
+sha256sums=('{{SHA256_DEB}}')
+
+package() {
+    tar -xf data.tar.gz -C "$pkgdir"
+    # udev rule ships in the deb payload at /usr/lib/udev/rules.d/.
+}

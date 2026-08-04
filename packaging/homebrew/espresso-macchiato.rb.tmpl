@@ -1,0 +1,28 @@
+# Homebrew cask template. Fill {{VERSION}}, {{SHA256_ARM64}} and
+# {{SHA256_X64}} from the release's SHA256SUMS.txt, then push to the tap.
+cask "espresso-macchiato" do
+  arch arm: "aarch64", intel: "x64"
+
+  version "{{VERSION}}"
+  sha256 arm: "{{SHA256_ARM64}}", intel: "{{SHA256_X64}}"
+
+  url "https://github.com/simiriva95/EspressoMacchiato/releases/download/v#{version}/EspressoMacchiato_#{version}_#{arch}.dmg"
+  name "EspressoMacchiato"
+  desc "Keep your machine awake and present — menu bar keep-awake with a real idle-counter reset"
+  homepage "https://github.com/simiriva95/EspressoMacchiato"
+
+  depends_on macos: ">= :monterey"
+
+  app "EspressoMacchiato.app"
+
+  # Ad-hoc signed (no notarization): drop the quarantine flag on install.
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-dr", "com.apple.quarantine", "#{appdir}/EspressoMacchiato.app"],
+                   sudo: false
+  end
+
+  zap trash: [
+    "~/Library/Application Support/app.espressomacchiato",
+  ]
+end

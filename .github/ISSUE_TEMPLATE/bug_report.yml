@@ -1,0 +1,52 @@
+name: Bug report
+description: Something doesn't work (idle not resetting, sleep not inhibited, UI issues…)
+labels: [bug]
+body:
+  - type: input
+    id: os
+    attributes:
+      label: OS and version
+      placeholder: "macOS 14.5 / Ubuntu 24.04 / Fedora 40 / Arch"
+    validations:
+      required: true
+  - type: input
+    id: app-version
+    attributes:
+      label: App version
+      placeholder: "0.1.0"
+    validations:
+      required: true
+  - type: dropdown
+    id: session-type
+    attributes:
+      label: Session type (Linux)
+      options:
+        - Not Linux
+        - X11
+        - Wayland
+        - Unknown
+    validations:
+      required: true
+  - type: input
+    id: desktop
+    attributes:
+      label: Desktop environment (Linux)
+      placeholder: "GNOME 46 / KDE Plasma 6 / XFCE — the onboarding wizard shows the detected session"
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: Include the Idle Monitor readout if relevant (source, "Test now" before/after numbers).
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected
+    validations:
+      required: true
+  - type: textarea
+    id: degradations
+    attributes:
+      label: Degradation banner content (if any)
+      description: Copy the text of the "Reduced functionality" card, if shown.

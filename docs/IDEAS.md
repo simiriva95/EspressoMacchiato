@@ -1,5 +1,17 @@
 # Ideas / out of scope for now
 
+- **Auto-updater.** `tauri-plugin-updater` needs a minisign keypair and a
+  `latest.json` endpoint; shipping it with a placeholder key would be
+  security theater. When a key exists: add the plugin, gate the check
+  behind onboarding consent, wire `TAURI_SIGNING_PRIVATE_KEY` in
+  release.yml (the hook is already there).
+- **IOPSCopyPowerSourcesInfo FFI** to replace the `pmset -g ps` parse in
+  the macOS condition probe (the M4 battery panel already uses proper
+  IOKit FFI; only the AC/percent quick probe still shells out).
+- **Stateful tray icons** (full/empty/paused/alert cup) and the one-time
+  steam puff on poke — needs a proper icon set at 22px, template variant
+  for macOS, theme-friendly SVG for Linux.
+
 - **libei / reis for Wayland input injection.** The long-term correct path on
   Wayland: emulated input through the desktop portal
   (`org.freedesktop.portal.RemoteDesktop` → libei), user-consented, no uinput

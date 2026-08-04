@@ -38,6 +38,22 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "macOS": {
+      "signingIdentity": "-",
+      "minimumSystemVersion": "12.0"
+    },
+    "linux": {
+      "deb": {
+        "files": {
+          "/usr/lib/udev/rules.d/99-espressomacchiato-uinput.rules": "../packaging/linux/99-espressomacchiato-uinput.rules"
+        }
+      },
+      "rpm": {
+        "files": {
+          "/usr/lib/udev/rules.d/99-espressomacchiato-uinput.rules": "../packaging/linux/99-espressomacchiato-uinput.rules"
+        }
+      }
+    }
   }
 }
