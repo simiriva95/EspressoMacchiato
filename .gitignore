@@ -12,6 +12,16 @@ dist
 dist-ssr
 *.local
 
+# Signing material: the local code-signing identity lives in the macOS
+# keychain, never in the repo (scripts/create-signing-identity.sh generates
+# a throwaway keypair and deletes it). Guardrail against accidental commits.
+*.pem
+*.p12
+*.key
+*.cer
+*.crt
+*.mobileprovision
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
