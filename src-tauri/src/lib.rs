@@ -64,6 +64,7 @@ fn backend_language(settings_language: &str) -> String {
 }
 
 /// "38m · 85%" next to the tray icon, per the configured metrics (max two).
+#[cfg(target_os = "macos")]
 fn compose_menu_text(
     metrics: &[String],
     snapshot: &platform::PowerSnapshot,
