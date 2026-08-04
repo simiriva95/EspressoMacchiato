@@ -43,15 +43,18 @@ The injection is invisible: no cursor movement, no keystrokes reaching your apps
 
 ## Install
 
-### macOS
+### macOS (Homebrew, Apple Silicon)
 
-Download the `.dmg` from [Releases](https://github.com/simiriva95/EspressoMacchiato/releases), drag to Applications, then:
+```bash
+brew tap simiriva95/espressomacchiato https://github.com/simiriva95/EspressoMacchiato
+brew install --cask --no-quarantine espresso-macchiato
+```
+
+`--no-quarantine` because the app is ad-hoc signed, not notarized — notarization costs 99 $/year and the code is inspectable. Or manually: download the `.dmg` from [Releases](https://github.com/simiriva95/EspressoMacchiato/releases), drag to Applications, then:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/EspressoMacchiato.app
 ```
-
-Why: the app is ad-hoc signed, not notarized — notarization costs 99 $/year and the code is public and inspectable. A Homebrew tap (`brew install --cask --no-quarantine`) is planned.
 
 Then grant **System Settings → Privacy & Security → Accessibility** when the app asks: without it macOS silently drops synthetic events, and the app will tell you it is running degraded instead of pretending.
 

@@ -14,8 +14,8 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14 # arm64
-          - os: macos-13 # x86_64
+          # Ubuntu only while the repo is private: macOS runners burn the
+          # free-minute quota at 10x. Re-add macos-14/macos-13 when public.
           - os: ubuntu-22.04
     runs-on: ${{ matrix.os }}
     steps:

@@ -1,9 +1,10 @@
-name: Release
+# Manual-only while releases are built locally (snapkit-style: local dmg +
+# gh release create + Casks/ served from this repo as a tap). Run from the
+# Actions tab when CI-built multi-arch releases are wanted again.
+name: Release (manual)
 
 on:
-  push:
-    tags:
-      - "v*.*.*"
+  workflow_dispatch:
 
 permissions:
   contents: write
@@ -53,8 +54,6 @@ jobs:
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          # Optional: set to enable updater artifact signing when a minisign
-          # key exists. Absent = plain artifacts, no updater manifest.
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -63,15 +62,3 @@ jobs:
           releaseDraft: true
           generateReleaseNotes: true
           args: --target ${{ matrix.target }}
-
-  checksums:
-    needs: build
-    runs-on: ubuntu-22.04
-    steps:
-      - name: Download release assets and append SHA256SUMS
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: |
-          gh release download "${{ github.ref_name }}" --repo "$GITHUB_REPOSITORY" --dir assets
-          (cd assets && sha256sum * > ../SHA256SUMS.txt)
-          gh release upload "${{ github.ref_name }}" SHA256SUMS.txt --repo "$GITHUB_REPOSITORY" --clobber

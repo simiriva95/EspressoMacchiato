@@ -43,15 +43,18 @@ L'iniezione è invisibile: il cursore non si muove, nessun tasto arriva alle tue
 
 ## Installazione
 
-### macOS
+### macOS (Homebrew, Apple Silicon)
 
-Scarica il `.dmg` dalle [Release](https://github.com/simiriva95/EspressoMacchiato/releases), trascina in Applicazioni, poi:
+```bash
+brew tap simiriva95/espressomacchiato https://github.com/simiriva95/EspressoMacchiato
+brew install --cask --no-quarantine espresso-macchiato
+```
+
+`--no-quarantine` perché l'app è firmata ad-hoc, non notarizzata — la notarizzazione costa 99 $/anno e il codice è ispezionabile. Oppure a mano: scarica il `.dmg` dalle [Release](https://github.com/simiriva95/EspressoMacchiato/releases), trascina in Applicazioni, poi:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/EspressoMacchiato.app
 ```
-
-Perché: l'app è firmata ad-hoc, non notarizzata — la notarizzazione costa 99 $/anno e il codice è pubblico e ispezionabile. Un tap Homebrew (`brew install --cask --no-quarantine`) è in programma.
 
 Poi concedi **Impostazioni di Sistema → Privacy e Sicurezza → Accessibilità** quando l'app lo chiede: senza, macOS scarta silenziosamente gli eventi sintetici, e l'app te lo dice (modalità ridotta dichiarata) invece di fingere.
 
