@@ -1,49 +1,140 @@
-import { useState } from "react";
-import reactLogo from "./assets/react.svg";
-import { invoke } from "@tauri-apps/api/core";
-import "./App.css";
+import { useEffect, useState } from "react";
+import { IdleMonitor } from "./features/idle-monitor/IdleMonitor";
+import {
+  ipc,
+  type ActivityStrategy,
+  type StatusSnapshot,
+} from "./lib/ipc";
+
+const STRATEGY_LABELS: Record<ActivityStrategy, string> = {
+  zero_mouse_move: "Zero-delta mouse move (invisible)",
+  harmless_key_tap: "Harmless key tap (F15)",
+  nudge_and_return: "Nudge 1px and return (visible)",
+};
 
 function App() {
-  const [greetMsg, setGreetMsg] = useState("");
-  const [name, setName] = useState("");
+  const [status, setStatus] = useState<StatusSnapshot | null>(null);
+  const [interval, setIntervalSecs] = useState(60);
 
-  async function greet() {
-    // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
-    setGreetMsg(await invoke("greet", { name }));
-  }
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    ipc.getStatus().then((s) => {
+      setStatus(s);
+      setIntervalSecs(s.interval_secs);
+    });
+    ipc
+      .onEngineEvent((e) => {
+        if (e.type === "state_changed") {
+          setStatus(e.status);
+          setIntervalSecs(e.status.interval_secs);
+        } else {
+          // poke event: refresh counters
+          ipc.getStatus().then(setStatus);
+        }
+      })
+      .then((fn) => {
+        unlisten = fn;
+      });
+    return () => unlisten?.();
+  }, []);
+
+  const on = status !== null && status.state !== "off";
 
   return (
-    <main className="container">
-      <h1>Welcome to Tauri + React</h1>
+    <main className="mx-auto max-w-md space-y-4 p-4">
+      <header className="flex items-center justify-between">
+        <div>
+          <h1 className="text-lg font-bold">EspressoMacchiato</h1>
+          <p className="text-sm text-gray-500" data-testid="state">
+            {status?.state ?? "…"}
+            {status?.state === "degraded" && ` — ${status.state_detail}`}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => ipc.setActive(!on)}
+          className={`rounded px-4 py-2 font-semibold text-white ${
+            on ? "bg-red-800" : "bg-green-700"
+          }`}
+        >
+          {on ? "Deactivate" : "Activate"}
+        </button>
+      </header>
 
-      <div className="row">
-        <a href="https://vite.dev" target="_blank">
-          <img src="/vite.svg" className="logo vite" alt="Vite logo" />
-        </a>
-        <a href="https://tauri.app" target="_blank">
-          <img src="/tauri.svg" className="logo tauri" alt="Tauri logo" />
-        </a>
-        <a href="https://react.dev" target="_blank">
-          <img src={reactLogo} className="logo react" alt="React logo" />
-        </a>
-      </div>
-      <p>Click on the Tauri, Vite, and React logos to learn more.</p>
+      {status && status.degradations.length > 0 && (
+        <div className="rounded border border-amber-500 bg-amber-50 p-3 text-sm">
+          <p className="font-semibold">Reduced functionality</p>
+          <ul className="list-disc pl-4">
+            {status.degradations.map((d, i) => (
+              <li key={i}>
+                {d.detail}
+                {d.help && <div className="mono text-xs">{d.help}</div>}
+              </li>
+            ))}
+          </ul>
+          <button
+            type="button"
+            className="mt-2 rounded border border-amber-600 px-2 py-1"
+            onClick={() => ipc.openPermissionSettings().catch(() => {})}
+          >
+            Open system settings
+          </button>
+        </div>
+      )}
 
-      <form
-        className="row"
-        onSubmit={(e) => {
-          e.preventDefault();
-          greet();
-        }}
-      >
-        <input
-          id="greet-input"
-          onChange={(e) => setName(e.currentTarget.value)}
-          placeholder="Enter a name..."
-        />
-        <button type="submit">Greet</button>
-      </form>
-      <p>{greetMsg}</p>
+      <IdleMonitor status={status} />
+
+      <section className="space-y-3 rounded-lg border border-gray-300 p-4">
+        <h2 className="text-sm font-semibold uppercase tracking-wide">
+          Settings
+        </h2>
+
+        <label className="block text-sm">
+          Poke interval: <span className="mono">{interval}s</span>
+          <input
+            type="range"
+            min={10}
+            max={240}
+            step={5}
+            value={interval}
+            onChange={(e) => setIntervalSecs(Number(e.target.value))}
+            onMouseUp={() => ipc.setIntervalSecs(interval)}
+            onTouchEnd={() => ipc.setIntervalSecs(interval)}
+            onKeyUp={() => ipc.setIntervalSecs(interval)}
+            className="w-full"
+          />
+          <span className="text-xs text-gray-500">
+            Presence clients typically go Away after ~5 minutes of idle; keep
+            this well below that.
+          </span>
+        </label>
+
+        <label className="block text-sm">
+          Strategy
+          <select
+            value={status?.strategy ?? "zero_mouse_move"}
+            onChange={(e) =>
+              ipc.setStrategy(e.target.value as ActivityStrategy)
+            }
+            className="mt-1 w-full rounded border border-gray-300 p-1"
+          >
+            {(status?.available_strategies ?? []).map((s) => (
+              <option key={s} value={s}>
+                {STRATEGY_LABELS[s]}
+              </option>
+            ))}
+          </select>
+        </label>
+
+        <label className="flex items-center gap-2 text-sm">
+          <input
+            type="checkbox"
+            checked={status?.pause_when_input_recent ?? true}
+            onChange={(e) => ipc.setPauseWhenInputRecent(e.target.checked)}
+          />
+          Skip pokes while I'm actually using the machine
+        </label>
+      </section>
     </main>
   );
 }
