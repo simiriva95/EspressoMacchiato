@@ -8,7 +8,7 @@
 # release's SHA256SUMS or `shasum -a 256 <dmg>`).
 cask "espresso-macchiato" do
   version "0.1.0"
-  sha256 "e422aac7bed3a757f4d7914a7d35167122c0eb7e62bd724a950a283fbf514dbf"
+  sha256 "af1a39e665276dc05cedfe68f3aaff58d712cbc80a9b8a2ef4115c62a72d1196"
 
   url "https://github.com/simiriva95/EspressoMacchiato/releases/download/v#{version}/EspressoMacchiato_#{version}_aarch64.dmg"
   name "EspressoMacchiato"
