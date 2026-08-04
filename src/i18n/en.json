@@ -48,6 +48,7 @@
   },
   "degraded": {
     "title": "Reduced functionality",
+    "grant": "Grant the permission",
     "openSystemSettings": "Open system settings"
   },
   "settings": {

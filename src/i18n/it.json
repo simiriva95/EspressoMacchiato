@@ -48,6 +48,7 @@
   },
   "degraded": {
     "title": "Funzionalità ridotta",
+    "grant": "Concedi il permesso",
     "openSystemSettings": "Apri impostazioni di sistema"
   },
   "settings": {

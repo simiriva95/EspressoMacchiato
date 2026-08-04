@@ -42,6 +42,13 @@ extern "C" {
 extern "C" {
     /// Returns a C `Boolean` (unsigned char).
     pub fn AXIsProcessTrusted() -> u8;
+    /// With kAXTrustedCheckOptionPrompt=true, shows the system dialog AND
+    /// registers the app in the Accessibility list (otherwise the user has
+    /// nothing to toggle there).
+    pub fn AXIsProcessTrustedWithOptions(
+        options: core_foundation::dictionary::CFDictionaryRef,
+    ) -> u8;
+    pub static kAXTrustedCheckOptionPrompt: core_foundation::string::CFStringRef;
 }
 
 // IORegistry access for AppleSmartBattery (IOKitLib.h).

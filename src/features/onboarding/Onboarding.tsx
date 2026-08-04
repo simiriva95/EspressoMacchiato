@@ -79,6 +79,21 @@ export function Onboarding({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
+                    className="min-h-8 rounded-full bg-accent px-4 py-1 font-semibold text-on-accent"
+                    onClick={() =>
+                      ipc
+                        .requestPermission()
+                        .then((granted) => {
+                          if (!granted)
+                            ipc.openPermissionSettings().catch(() => {});
+                        })
+                        .catch(() => {})
+                    }
+                  >
+                    {t("degraded.grant")}
+                  </button>
+                  <button
+                    type="button"
                     className="min-h-8 rounded-full border border-line px-3 py-1"
                     onClick={() => ipc.openPermissionSettings().catch(() => {})}
                   >

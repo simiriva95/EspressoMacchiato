@@ -24,13 +24,31 @@ export function DegradationsCard({
           </li>
         ))}
       </ul>
-      <button
-        type="button"
-        className="mt-2 min-h-8 rounded-full border border-line px-3 py-1"
-        onClick={() => ipc.openPermissionSettings().catch(() => {})}
-      >
-        {t("degraded.openSystemSettings")}
-      </button>
+      <div className="mt-2 flex flex-wrap gap-2">
+        <button
+          type="button"
+          className="min-h-8 rounded-full bg-accent px-4 py-1 font-semibold text-on-accent"
+          onClick={() =>
+            // System prompt first (registers the app in the Privacy list);
+            // the settings pane as fallback for a previously-denied state.
+            ipc
+              .requestPermission()
+              .then((granted) => {
+                if (!granted) ipc.openPermissionSettings().catch(() => {});
+              })
+              .catch(() => {})
+          }
+        >
+          {t("degraded.grant")}
+        </button>
+        <button
+          type="button"
+          className="min-h-8 rounded-full border border-line px-3 py-1"
+          onClick={() => ipc.openPermissionSettings().catch(() => {})}
+        >
+          {t("degraded.openSystemSettings")}
+        </button>
+      </div>
     </div>
   );
 }

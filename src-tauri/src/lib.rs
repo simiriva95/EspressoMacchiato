@@ -190,6 +190,13 @@ pub fn run() {
             if let Err(e) = register_hotkey(app.handle(), &settings.hotkey) {
                 tracing::warn!("hotkey '{}' not registered: {e}", settings.hotkey);
             }
+            // Missing Accessibility at launch → show the system prompt once,
+            // which also puts the app in the Privacy & Security list (with
+            // the silent check alone there is nothing for the user to find).
+            #[cfg(target_os = "macos")]
+            if !platform::macos::permissions::accessibility_trusted() {
+                platform::macos::permissions::request_accessibility();
+            }
             // Converge the OS login item with the stored preference.
             let autolaunch = app.autolaunch();
             let result = if settings.autostart {
@@ -364,6 +371,7 @@ pub fn run() {
             commands::open_settings_window,
             commands::get_power,
             commands::get_power_history,
+            commands::request_permission,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

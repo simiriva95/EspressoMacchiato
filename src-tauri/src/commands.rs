@@ -49,6 +49,20 @@ pub fn get_permission_status(state: State<'_, AppState>) -> Vec<Degradation> {
     (state.preflight)()
 }
 
+/// macOS: system Accessibility prompt (registers the app in the Privacy
+/// list). Returns whether the process is trusted right now.
+#[tauri::command]
+pub fn request_permission() -> bool {
+    #[cfg(target_os = "macos")]
+    {
+        crate::platform::macos::permissions::request_accessibility()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        false
+    }
+}
+
 /// Deep link to the OS panel where the missing permission is granted.
 #[tauri::command]
 pub fn open_permission_settings(app: tauri::AppHandle) -> Result<(), String> {
