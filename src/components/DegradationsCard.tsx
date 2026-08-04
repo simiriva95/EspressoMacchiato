@@ -12,7 +12,7 @@ export function DegradationsCard({
   const { t } = useTranslation();
   if (degradations.length === 0) return null;
   return (
-    <div className="rounded-lg border border-alert bg-surface p-3 text-sm">
+    <div className="card border-alert p-3 text-sm">
       <p className="font-semibold text-alert">{t("degraded.title")}</p>
       <ul className="mt-1 list-disc space-y-1 pl-4">
         {degradations.map((d, i) => (
@@ -26,7 +26,7 @@ export function DegradationsCard({
       </ul>
       <button
         type="button"
-        className="mt-2 min-h-8 rounded border border-line px-2 py-1"
+        className="mt-2 min-h-8 rounded-full border border-line px-3 py-1"
         onClick={() => ipc.openPermissionSettings().catch(() => {})}
       >
         {t("degraded.openSystemSettings")}

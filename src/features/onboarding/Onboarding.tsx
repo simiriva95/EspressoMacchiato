@@ -40,7 +40,7 @@ export function Onboarding({
       aria-label={t("onboarding.welcomeTitle")}
       className="fixed inset-0 z-10 flex items-center justify-center bg-bg/95 p-4"
     >
-      <div className="w-full max-w-sm rounded-lg border border-line bg-surface p-5">
+      <div className="w-full max-w-sm card p-5">
         {step === 0 && (
           <div className="space-y-3">
             <h2 className="display text-xl text-accent">
@@ -79,7 +79,7 @@ export function Onboarding({
                 <div className="flex flex-wrap gap-2">
                   <button
                     type="button"
-                    className="min-h-8 rounded border border-line px-2 py-1"
+                    className="min-h-8 rounded-full border border-line px-3 py-1"
                     onClick={() => ipc.openPermissionSettings().catch(() => {})}
                   >
                     {t("onboarding.openSystemSettings")}
@@ -87,7 +87,7 @@ export function Onboarding({
                   {degradations.some((d) => d.help?.includes("\n")) && (
                     <button
                       type="button"
-                      className="min-h-8 rounded border border-line px-2 py-1"
+                      className="min-h-8 rounded-full border border-line px-3 py-1"
                       onClick={() => {
                         const commands = degradations
                           .map((d) => d.help)
@@ -169,7 +169,7 @@ export function Onboarding({
             {step > 0 && (
               <button
                 type="button"
-                className="min-h-8 rounded border border-line px-3 py-1 text-sm"
+                className="min-h-8 rounded-full border border-line px-3 py-1 text-sm"
                 onClick={() => setStep(step - 1)}
               >
                 {t("onboarding.back")}
@@ -178,7 +178,7 @@ export function Onboarding({
             {step < 2 ? (
               <button
                 type="button"
-                className="min-h-8 rounded bg-accent px-3 py-1 text-sm font-semibold text-on-accent"
+                className="min-h-8 rounded-full bg-accent px-4 py-1 text-sm font-semibold text-on-accent"
                 onClick={() => setStep(step + 1)}
               >
                 {t("onboarding.next")}
@@ -186,7 +186,7 @@ export function Onboarding({
             ) : (
               <button
                 type="button"
-                className="min-h-8 rounded bg-accent px-3 py-1 text-sm font-semibold text-on-accent"
+                className="min-h-8 rounded-full bg-accent px-4 py-1 text-sm font-semibold text-on-accent"
                 onClick={finish}
               >
                 {t("onboarding.done")}

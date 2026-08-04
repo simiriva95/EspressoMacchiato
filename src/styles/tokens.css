@@ -28,6 +28,10 @@
   --alert: #e36b6f;
   --alert-fill: var(--rosso-bar);
   --on-alert-fill: var(--macchiato);
+  /* Liquid-glass variants: used when the OS provides vibrancy behind the
+     window (macOS), activated via [data-glass]. */
+  --bg-glass: color-mix(in srgb, var(--tostato) 52%, transparent);
+  --surface-glass: color-mix(in srgb, var(--tostato-alt) 58%, transparent);
 }
 
 /* Light scheme values (spec: macchiato background, tostato text, accents
@@ -45,6 +49,8 @@
     --alert: var(--rosso-bar);
     --alert-fill: var(--rosso-bar);
     --on-alert-fill: var(--macchiato);
+    --bg-glass: color-mix(in srgb, var(--macchiato) 55%, transparent);
+    --surface-glass: color-mix(in srgb, #faf4ea 62%, transparent);
   }
 }
 
@@ -60,4 +66,12 @@
   --alert: var(--rosso-bar);
   --alert-fill: var(--rosso-bar);
   --on-alert-fill: var(--macchiato);
+  --bg-glass: color-mix(in srgb, var(--macchiato) 55%, transparent);
+  --surface-glass: color-mix(in srgb, #faf4ea 62%, transparent);
+}
+
+/* Vibrancy behind the window: translucent layers over the OS blur. */
+:root[data-glass] {
+  --bg: var(--bg-glass);
+  --surface: var(--surface-glass);
 }

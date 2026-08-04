@@ -68,7 +68,7 @@ export function IdleMonitor({ status, pokeSignal = 0, compact = false }: Props) 
   return (
     <section
       aria-label={t("a11y.idleMonitorRegion")}
-      className="rounded-lg border border-line bg-surface p-4"
+      className="card p-4"
     >
       <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-2">
         {t("idle.title")}
@@ -139,7 +139,7 @@ export function IdleMonitor({ status, pokeSignal = 0, compact = false }: Props) 
           type="button"
           onClick={testNow}
           disabled={testing}
-          className="min-h-8 rounded border border-line px-3 py-1.5 text-sm hover:bg-bg disabled:opacity-50"
+          className="min-h-8 rounded-full border border-line px-4 py-1.5 text-sm hover:bg-bg disabled:opacity-50"
         >
           {t("idle.testNow")}
         </button>

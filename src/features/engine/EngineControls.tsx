@@ -66,7 +66,7 @@ export function EngineControls({
         <button
           type="button"
           onClick={() => (on ? ipc.setActive(false) : activate())}
-          className={`min-h-8 shrink-0 rounded px-4 py-2 font-semibold ${
+          className={`min-h-9 shrink-0 rounded-full px-5 py-2 font-semibold ${
             on
               ? "bg-alert-fill text-on-alert-fill"
               : "bg-accent text-on-accent"

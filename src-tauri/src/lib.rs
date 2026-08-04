@@ -125,6 +125,10 @@ pub fn run() {
         ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
         .setup(|app| {
+            // Menu bar app: no Dock icon, no Cmd+Tab entry. The tray is home.
+            #[cfg(target_os = "macos")]
+            app.set_activation_policy(tauri::ActivationPolicy::Accessory);
+
             let settings_path = config::settings_path()
                 .ok_or("cannot resolve the configuration directory")?;
             let (settings, outcome) = config::load(&settings_path);
@@ -302,13 +306,33 @@ pub fn run() {
                 tauri::WebviewUrl::default(),
             )
             .title("EspressoMacchiato")
-            .inner_size(360.0, 480.0)
+            .inner_size(360.0, 500.0)
             .decorations(false)
             .resizable(false)
             .visible(false)
             .always_on_top(true)
             .skip_taskbar(true)
+            .transparent(true)
+            .effects(tauri::utils::config::WindowEffectsConfig {
+                effects: vec![tauri::utils::WindowEffect::HudWindow],
+                state: None,
+                radius: Some(16.0),
+                color: None,
+            })
             .build()?;
+
+            // First run with something to configure: surface the window.
+            let show_main = {
+                let state = app.state::<AppState>();
+                let s = state.settings.lock().unwrap();
+                !s.onboarding_done
+            };
+            if show_main {
+                if let Some(window) = app.get_webview_window("main") {
+                    let _ = window.show();
+                    let _ = window.set_focus();
+                }
+            }
 
             Ok(())
         })

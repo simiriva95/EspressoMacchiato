@@ -34,7 +34,7 @@ export function PowerPanel() {
   return (
     <section
       aria-label={t("power.title")}
-      className="space-y-4 rounded-lg border border-line bg-surface p-4"
+      className="card space-y-4 p-4"
     >
       <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-2">
         {t("power.title")}
