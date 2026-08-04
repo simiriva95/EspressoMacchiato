@@ -4,7 +4,13 @@
 //! engine) only ever sees this module's types. Real implementations live in
 //! `macos/` and `linux/`; `mock.rs` backs tests and CI.
 
+#[cfg(any(test, not(any(target_os = "macos", target_os = "linux"))))]
 pub mod mock;
+
+#[cfg(target_os = "linux")]
+pub mod linux;
+#[cfg(target_os = "macos")]
+pub mod macos;
 
 use std::sync::Arc;
 use std::time::Duration;
@@ -150,8 +156,17 @@ impl PowerMonitor for NullPowerMonitor {
     }
 }
 
-// M0: every platform runs on the mock. M1 swaps in the real macOS/Linux
-// implementations behind the same factory.
+#[cfg(target_os = "macos")]
+pub fn current_platform() -> Platform {
+    macos::platform()
+}
+
+#[cfg(target_os = "linux")]
+pub fn current_platform() -> Platform {
+    linux::platform()
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "linux")))]
 pub fn current_platform() -> Platform {
     mock::mock_platform().0
 }
