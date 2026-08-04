@@ -50,6 +50,30 @@ Linux (X11, Wayland GNOME, Wayland KDE) and report numbers.
   with a mock implementation — never `#[cfg]` in domain logic.
 - Out-of-scope ideas go to `docs/IDEAS.md` instead of growing PRs.
 
+## macOS signing (local builds)
+
+macOS ties the Accessibility grant to the code signature. Ad-hoc signing
+(`-`) produces a new identity on every rebuild, so the permission is lost
+after each update. Create a free, local self-signed identity once:
+
+```bash
+./scripts/create-signing-identity.sh
+```
+
+Then build with it (the designated requirement becomes
+`identifier + certificate root`, stable across rebuilds):
+
+```bash
+export APPLE_SIGNING_IDENTITY="EspressoMacchiato Local Signing"
+npm run tauri build
+```
+
+If a stale grant lingers from an earlier ad-hoc build:
+`tccutil reset Accessibility app.espressomacchiato`.
+
+CI has no such keychain, so CI builds fall back to ad-hoc signing — fine
+for distribution, where every user grants the permission once anyway.
+
 ## Releases
 
 Tag `v X.Y.Z` → `release.yml` builds dmg (ad-hoc signed), deb/rpm/AppImage
