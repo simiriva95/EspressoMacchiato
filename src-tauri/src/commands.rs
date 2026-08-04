@@ -1,11 +1,13 @@
 //! #[tauri::command] endpoints exposed to the frontend.
 
 use tauri::State;
+use tauri_plugin_autostart::ManagerExt;
 
+use crate::config::{defaults, Settings};
 use crate::core::engine::clamp_interval_secs;
 use crate::core::events::{PokeReport, StatusSnapshot};
 use crate::core::state::ActivationReason;
-use crate::platform::{ActivityStrategy, Degradation};
+use crate::platform::Degradation;
 use crate::AppState;
 
 #[tauri::command]
@@ -14,38 +16,20 @@ pub async fn get_status(state: State<'_, AppState>) -> Result<StatusSnapshot, St
 }
 
 #[tauri::command]
-pub async fn set_active(state: State<'_, AppState>, on: bool) -> Result<(), String> {
-    state.engine.set_active(on, ActivationReason::Manual);
+pub async fn set_active(
+    state: State<'_, AppState>,
+    on: bool,
+    duration_secs: Option<u64>,
+) -> Result<(), String> {
+    state
+        .engine
+        .set_active(on, ActivationReason::Manual, duration_secs);
     Ok(())
 }
 
 #[tauri::command]
 pub async fn toggle(state: State<'_, AppState>) -> Result<(), String> {
     state.engine.toggle();
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn set_interval_secs(state: State<'_, AppState>, secs: u64) -> Result<u64, String> {
-    state.engine.set_interval_secs(secs);
-    Ok(clamp_interval_secs(secs))
-}
-
-#[tauri::command]
-pub async fn set_pause_when_input_recent(
-    state: State<'_, AppState>,
-    on: bool,
-) -> Result<(), String> {
-    state.engine.set_pause_when_input_recent(on);
-    Ok(())
-}
-
-#[tauri::command]
-pub async fn set_strategy(
-    state: State<'_, AppState>,
-    strategy: ActivityStrategy,
-) -> Result<(), String> {
-    state.engine.set_strategy(strategy);
     Ok(())
 }
 
@@ -83,4 +67,56 @@ pub fn open_permission_settings(app: tauri::AppHandle) -> Result<(), String> {
         let _ = app;
         Err("no settings panel to open on this platform".into())
     }
+}
+
+#[tauri::command]
+pub fn get_settings(state: State<'_, AppState>) -> Settings {
+    state.settings.lock().unwrap().clone()
+}
+
+/// Single write path for all settings: sanitize, apply to the engine and
+/// the OS (hotkey, autostart), persist (debounced). Returns the sanitized
+/// settings so the UI reflects clamping.
+#[tauri::command]
+pub fn update_settings(
+    app: tauri::AppHandle,
+    state: State<'_, AppState>,
+    settings: Settings,
+) -> Result<Settings, String> {
+    let mut new = settings;
+    new.schema_version = defaults::SCHEMA_VERSION;
+    new.interval_secs = clamp_interval_secs(new.interval_secs);
+
+    let old = state.settings.lock().unwrap().clone();
+
+    // Hotkey first: it is the only fallible step, and failing early leaves
+    // everything untouched.
+    if new.hotkey != old.hotkey {
+        crate::register_hotkey(&app, &new.hotkey)
+            .map_err(|e| format!("hotkey '{}' not usable: {e}", new.hotkey))?;
+    }
+
+    state.engine.apply_config(
+        new.interval_secs,
+        new.schedule.clone(),
+        new.conditions.clone(),
+    );
+    if new.strategy != old.strategy {
+        state.engine.set_strategy(new.strategy);
+    }
+    if new.autostart != old.autostart {
+        let autolaunch = app.autolaunch();
+        let result = if new.autostart {
+            autolaunch.enable()
+        } else {
+            autolaunch.disable()
+        };
+        if let Err(e) = result {
+            tracing::warn!("autostart change failed: {e}");
+        }
+    }
+
+    *state.settings.lock().unwrap() = new.clone();
+    let _ = state.saver.send(new.clone());
+    Ok(new)
 }

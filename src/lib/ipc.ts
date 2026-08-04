@@ -41,24 +41,54 @@ export interface PokeReport {
   idle_after: number | null;
 }
 
+export interface ScheduleWindow {
+  days: number[]; // 0 = Monday … 6 = Sunday
+  start: string; // "HH:MM"
+  end: string; // "HH:MM", exclusive; end <= start crosses midnight
+}
+
+export interface ScheduleConfig {
+  enabled: boolean;
+  windows: ScheduleWindow[];
+}
+
+export interface ConditionsConfig {
+  only_on_ac: boolean;
+  min_battery_percent: number | null;
+  only_when_process_running: boolean;
+  process_names: string[];
+  pause_when_screen_locked: boolean;
+  pause_when_input_recent: boolean;
+}
+
+export interface Settings {
+  schema_version: number;
+  interval_secs: number;
+  strategy: ActivityStrategy;
+  schedule: ScheduleConfig;
+  conditions: ConditionsConfig;
+  autostart: boolean;
+  activate_on_start: boolean;
+  hotkey: string;
+  end_of_day: string; // "HH:MM"
+}
+
 export type EngineEvent =
   | { type: "state_changed"; status: StatusSnapshot }
   | { type: "poke"; report: PokeReport; poke_count: number };
 
 export const ipc = {
   getStatus: () => invoke<StatusSnapshot>("get_status"),
-  setActive: (on: boolean) => invoke<void>("set_active", { on }),
+  setActive: (on: boolean, durationSecs?: number) =>
+    invoke<void>("set_active", { on, durationSecs: durationSecs ?? null }),
   toggle: () => invoke<void>("toggle"),
-  setIntervalSecs: (secs: number) =>
-    invoke<number>("set_interval_secs", { secs }),
-  setPauseWhenInputRecent: (on: boolean) =>
-    invoke<void>("set_pause_when_input_recent", { on }),
-  setStrategy: (strategy: ActivityStrategy) =>
-    invoke<void>("set_strategy", { strategy }),
   pokeNow: () => invoke<PokeReport>("poke_now"),
   getIdleSeconds: () => invoke<number>("get_idle_seconds"),
   getPermissionStatus: () => invoke<Degradation[]>("get_permission_status"),
   openPermissionSettings: () => invoke<void>("open_permission_settings"),
+  getSettings: () => invoke<Settings>("get_settings"),
+  updateSettings: (settings: Settings) =>
+    invoke<Settings>("update_settings", { settings }),
   onEngineEvent: (handler: (e: EngineEvent) => void): Promise<UnlistenFn> =>
     listen<EngineEvent>("engine://event", (event) => handler(event.payload)),
 };

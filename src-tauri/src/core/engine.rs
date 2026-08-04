@@ -2,13 +2,19 @@
 //! inhibit + poke loop. Commands come in through an mpsc channel, events go
 //! out through a callback (Tauri event emitter in production, a Vec in tests).
 
-use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
+use std::sync::Arc;
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
+use chrono::NaiveDateTime;
 use tokio::sync::{mpsc, oneshot};
-use tokio::time::MissedTickBehavior;
+// tokio Instant so deadlines/countdowns respect the paused clock in tests.
+use tokio::time::{Instant, MissedTickBehavior};
 
+use super::conditions::{required_suspension, GateFacts};
 use super::events::{EngineEvent, PokeReport, StatusSnapshot};
+use super::schedule;
 use super::state::{ActivationReason, EngineState, StopReason, SuspendReason};
+use crate::config::{ConditionsConfig, ScheduleConfig};
 use crate::platform::{
     ActivityStrategy, Degradation, DegradationKind, InhibitOptions, Platform, PlatformError,
 };
@@ -17,19 +23,23 @@ pub const MIN_INTERVAL_SECS: u64 = 10;
 pub const MAX_INTERVAL_SECS: u64 = 240;
 pub const DEFAULT_INTERVAL_SECS: u64 = 60;
 
+/// Cadence of schedule/gate/deadline evaluation. Bounds how late a timer
+/// or schedule transition can fire.
+const GATE_TICK: Duration = Duration::from_secs(10);
+
 #[derive(Debug, Clone)]
 pub struct EngineSettings {
     pub interval: Duration,
-    /// Skip a poke cycle when the user is already active
-    /// (idle < interval / 2). Reduces injections to zero during real use.
-    pub pause_when_input_recent: bool,
+    pub schedule: ScheduleConfig,
+    pub conditions: ConditionsConfig,
 }
 
 impl Default for EngineSettings {
     fn default() -> Self {
         Self {
             interval: Duration::from_secs(DEFAULT_INTERVAL_SECS),
-            pause_when_input_recent: true,
+            schedule: ScheduleConfig::default(),
+            conditions: ConditionsConfig::default(),
         }
     }
 }
@@ -43,11 +53,19 @@ pub enum Command {
     SetActive {
         on: bool,
         reason: ActivationReason,
+        /// None = indefinite. "Until HH:MM" is converted to seconds by the
+        /// caller (schedule::seconds_until).
+        duration_secs: Option<u64>,
     },
     Toggle,
     SetIntervalSecs(u64),
-    SetPauseWhenInputRecent(bool),
     SetStrategy(ActivityStrategy),
+    /// Full settings push (persisted config → engine).
+    ApplyConfig {
+        interval_secs: u64,
+        schedule: ScheduleConfig,
+        conditions: ConditionsConfig,
+    },
     Suspend(SuspendReason),
     Resume,
     PokeNow {
@@ -72,8 +90,12 @@ impl EngineHandle {
         let _ = self.tx.send(cmd);
     }
 
-    pub fn set_active(&self, on: bool, reason: ActivationReason) {
-        self.send(Command::SetActive { on, reason });
+    pub fn set_active(&self, on: bool, reason: ActivationReason, duration_secs: Option<u64>) {
+        self.send(Command::SetActive {
+            on,
+            reason,
+            duration_secs,
+        });
     }
 
     pub fn toggle(&self) {
@@ -84,12 +106,21 @@ impl EngineHandle {
         self.send(Command::SetIntervalSecs(secs));
     }
 
-    pub fn set_pause_when_input_recent(&self, on: bool) {
-        self.send(Command::SetPauseWhenInputRecent(on));
-    }
-
     pub fn set_strategy(&self, s: ActivityStrategy) {
         self.send(Command::SetStrategy(s));
+    }
+
+    pub fn apply_config(
+        &self,
+        interval_secs: u64,
+        schedule: ScheduleConfig,
+        conditions: ConditionsConfig,
+    ) {
+        self.send(Command::ApplyConfig {
+            interval_secs,
+            schedule,
+            conditions,
+        });
     }
 
     pub fn suspend(&self, reason: SuspendReason) {
@@ -124,6 +155,7 @@ impl EngineHandle {
 }
 
 pub type EventSink = Box<dyn Fn(EngineEvent) + Send + 'static>;
+pub type LocalClock = Arc<dyn Fn() -> NaiveDateTime + Send + Sync>;
 
 struct Engine {
     platform: Platform,
@@ -135,6 +167,10 @@ struct Engine {
     last_poke_ok: Option<bool>,
     last_poke_error: Option<String>,
     next_poke_at: Option<Instant>,
+    /// Edge detector for schedule windows: acting on transitions only means
+    /// a manual "off" during an open window is honored until it reopens.
+    last_schedule_open: bool,
+    now_local: LocalClock,
     on_event: EventSink,
 }
 
@@ -145,6 +181,21 @@ pub fn start(
     platform: Platform,
     settings: EngineSettings,
     on_event: EventSink,
+) -> (EngineHandle, impl std::future::Future<Output = ()> + Send) {
+    start_with_clock(
+        platform,
+        settings,
+        on_event,
+        Arc::new(|| chrono::Local::now().naive_local()),
+    )
+}
+
+/// Test entry point: inject the wall clock the schedule evaluates against.
+pub fn start_with_clock(
+    platform: Platform,
+    settings: EngineSettings,
+    on_event: EventSink,
+    now_local: LocalClock,
 ) -> (EngineHandle, impl std::future::Future<Output = ()> + Send) {
     let (tx, rx) = mpsc::unbounded_channel();
     let engine = Engine {
@@ -159,6 +210,8 @@ pub fn start(
         last_poke_ok: None,
         last_poke_error: None,
         next_poke_at: None,
+        last_schedule_open: false,
+        now_local,
         on_event,
     };
     (EngineHandle { tx }, engine.run(rx))
@@ -168,6 +221,8 @@ impl Engine {
     async fn run(mut self, mut rx: mpsc::UnboundedReceiver<Command>) {
         let mut ticker: Option<tokio::time::Interval> = None;
         let mut armed_interval: Option<Duration> = None;
+        let mut gate_tick = tokio::time::interval(GATE_TICK);
+        gate_tick.set_missed_tick_behavior(MissedTickBehavior::Delay);
 
         loop {
             tokio::select! {
@@ -178,18 +233,21 @@ impl Engine {
                         Some(cmd) => self.handle(cmd).await,
                     }
                 }
+                _ = gate_tick.tick() => {
+                    self.evaluate_gates();
+                }
                 _ = async { ticker.as_mut().unwrap().tick().await }, if ticker.is_some() => {
                     self.on_tick();
                 }
             }
 
-            // Reconcile the ticker with the desired state. Recreating it on
-            // every change (instead of mutating in place) keeps activation
-            // idempotent and makes drift behavior explicit.
+            // Reconcile the poke ticker with the desired state. Recreating
+            // it on every change (instead of mutating in place) keeps
+            // activation idempotent and makes drift behavior explicit.
             let want = self.state.should_poke().then_some(self.settings.interval);
             if want != armed_interval {
                 ticker = want.map(|iv| {
-                    let mut t = tokio::time::interval_at(tokio::time::Instant::now() + iv, iv);
+                    let mut t = tokio::time::interval_at(Instant::now() + iv, iv);
                     // After a forced-sleep resume, do NOT burst missed pokes.
                     t.set_missed_tick_behavior(MissedTickBehavior::Delay);
                     t
@@ -205,9 +263,15 @@ impl Engine {
 
     async fn handle(&mut self, cmd: Command) {
         match cmd {
-            Command::SetActive { on, reason } => {
+            Command::SetActive {
+                on,
+                reason,
+                duration_secs,
+            } => {
                 if on {
-                    self.activate(reason);
+                    let deadline =
+                        duration_secs.map(|secs| Instant::now() + Duration::from_secs(secs));
+                    self.activate(reason, deadline);
                 } else {
                     self.deactivate(StopReason::UserToggle);
                 }
@@ -216,21 +280,31 @@ impl Engine {
                 if self.state.is_on() {
                     self.deactivate(StopReason::UserToggle);
                 } else {
-                    self.activate(ActivationReason::Manual);
+                    self.activate(ActivationReason::Manual, None);
                 }
             }
             Command::SetIntervalSecs(secs) => {
                 self.settings.interval = Duration::from_secs(clamp_interval_secs(secs));
                 self.emit_state();
             }
-            Command::SetPauseWhenInputRecent(on) => {
-                self.settings.pause_when_input_recent = on;
-                self.emit_state();
-            }
             Command::SetStrategy(s) => {
                 if let Err(e) = self.platform.simulator.set_strategy(s) {
                     tracing::warn!("set_strategy failed: {e}");
                 }
+                self.emit_state();
+            }
+            Command::ApplyConfig {
+                interval_secs,
+                schedule,
+                conditions,
+            } => {
+                self.settings.interval = Duration::from_secs(clamp_interval_secs(interval_secs));
+                self.settings.schedule = schedule;
+                self.settings.conditions = conditions;
+                // Re-arm the edge detector so an already-open window is
+                // picked up (or a removed schedule stops mattering).
+                self.last_schedule_open = false;
+                self.evaluate_gates();
                 self.emit_state();
             }
             Command::Suspend(reason) => self.suspend(reason),
@@ -250,11 +324,11 @@ impl Engine {
     }
 
     /// Idempotent: activating while already on must not stack assertions.
-    fn activate(&mut self, reason: ActivationReason) {
+    fn activate(&mut self, reason: ActivationReason, deadline: Option<Instant>) {
         if self.state.is_on() {
             return;
         }
-        self.enter_running(reason, None);
+        self.enter_running(reason, deadline);
     }
 
     fn enter_running(&mut self, reason: ActivationReason, deadline: Option<Instant>) {
@@ -329,6 +403,61 @@ impl Engine {
         }
     }
 
+    /// Periodic evaluation of deadline, schedule windows and gates. Polling
+    /// on the wall clock (instead of precomputed absolute timers) is what
+    /// makes DST changes and forced-sleep resumes a non-event.
+    fn evaluate_gates(&mut self) {
+        if let Some(deadline) = self.state.deadline() {
+            if Instant::now() >= deadline {
+                self.deactivate(StopReason::TimerExpired);
+                return;
+            }
+        }
+
+        if self.settings.schedule.enabled {
+            let open = schedule::is_open(&self.settings.schedule.windows, (self.now_local)());
+            if open && !self.last_schedule_open && !self.state.is_on() {
+                self.enter_running(ActivationReason::Schedule, None);
+            } else if !open
+                && self.last_schedule_open
+                && self.state.is_on()
+                && self.state.activation_reason() == Some(ActivationReason::Schedule)
+            {
+                self.deactivate(StopReason::ScheduleClosed);
+            }
+            self.last_schedule_open = open;
+        }
+
+        if self.state.is_on() {
+            let facts = self.collect_facts();
+            let wanted = required_suspension(&self.settings.conditions, &facts);
+            let suspended = matches!(self.state, EngineState::Suspended { .. });
+            match (suspended, wanted) {
+                (false, Some(reason)) => self.suspend(reason),
+                (true, None) => self.resume(),
+                _ => {}
+            }
+        }
+    }
+
+    /// Only probe what the enabled gates actually need: probes can be
+    /// comparatively expensive (process scan, D-Bus round trip).
+    fn collect_facts(&self) -> GateFacts {
+        let cfg = &self.settings.conditions;
+        let probe = &self.platform.conditions;
+        GateFacts {
+            on_ac: cfg.only_on_ac.then(|| probe.on_ac()).flatten(),
+            battery_percent: cfg.only_on_ac.then(|| probe.battery_percent()).flatten(),
+            screen_locked: cfg
+                .pause_when_screen_locked
+                .then(|| probe.screen_locked())
+                .flatten(),
+            required_process_running: cfg
+                .only_when_process_running
+                .then(|| probe.any_process_running(&cfg.process_names)),
+        }
+    }
+
     fn on_tick(&mut self) {
         if let Some(deadline) = self.state.deadline() {
             if Instant::now() >= deadline {
@@ -349,7 +478,7 @@ impl Engine {
     fn poke_cycle(&mut self, manual: bool) -> PokeReport {
         let idle_before = self.platform.idle.idle_seconds().ok();
 
-        if !manual && self.settings.pause_when_input_recent {
+        if !manual && self.settings.conditions.pause_when_input_recent {
             if let Some(idle) = idle_before {
                 if idle < self.settings.interval.as_secs_f64() / 2.0 {
                     return PokeReport {
@@ -447,7 +576,7 @@ impl Engine {
             interval_secs: self.settings.interval.as_secs(),
             strategy: self.platform.simulator.strategy(),
             available_strategies: self.platform.simulator.available_strategies(),
-            pause_when_input_recent: self.settings.pause_when_input_recent,
+            pause_when_input_recent: self.settings.conditions.pause_when_input_recent,
             inhibitor_active: self.platform.inhibitor.is_active(),
             poke_count: self.poke_count,
             last_poke_unix_ms: self.last_poke_unix_ms,
@@ -483,22 +612,53 @@ fn unix_ms() -> Option<u64> {
 mod tests {
     use std::sync::{Arc, Mutex};
 
+    use chrono::{NaiveDate, NaiveDateTime};
+
     use super::*;
+    use crate::config::ScheduleWindow;
     use crate::platform::mock::{mock_platform, MockFailure, SharedMock};
 
     type Events = Arc<Mutex<Vec<EngineEvent>>>;
 
     fn start_engine() -> (EngineHandle, SharedMock, Events) {
+        start_engine_with(EngineSettings::default())
+    }
+
+    fn start_engine_with(settings: EngineSettings) -> (EngineHandle, SharedMock, Events) {
+        let (h, m, e, _) = start_engine_full(settings, at(2026, 8, 4, 12, 0));
+        (h, m, e)
+    }
+
+    type Clock = Arc<Mutex<NaiveDateTime>>;
+
+    fn start_engine_full(
+        settings: EngineSettings,
+        initial_now: NaiveDateTime,
+    ) -> (EngineHandle, SharedMock, Events, Clock) {
         let (platform, shared) = mock_platform();
         let events: Events = Arc::new(Mutex::new(Vec::new()));
         let sink = events.clone();
-        let (handle, fut) = start(
+        let clock: Clock = Arc::new(Mutex::new(initial_now));
+        let clock_for_engine = clock.clone();
+        let (handle, fut) = start_with_clock(
             platform,
-            EngineSettings::default(),
+            settings,
             Box::new(move |e| sink.lock().unwrap().push(e)),
+            Arc::new(move || *clock_for_engine.lock().unwrap()),
         );
         tokio::spawn(fut);
-        (handle, shared, events)
+        (handle, shared, events, clock)
+    }
+
+    fn at(y: i32, m: u32, d: u32, hh: u32, mm: u32) -> NaiveDateTime {
+        NaiveDate::from_ymd_opt(y, m, d)
+            .unwrap()
+            .and_hms_opt(hh, mm, 0)
+            .unwrap()
+    }
+
+    fn activate(h: &EngineHandle) {
+        h.set_active(true, ActivationReason::Manual, None);
     }
 
     /// Let the actor drain its mailbox / run due timers.
@@ -516,7 +676,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn pokes_exactly_once_per_interval() {
         let (h, m, _) = start_engine();
-        h.set_active(true, ActivationReason::Manual);
+        activate(&h);
         h.status().await.unwrap();
 
         for _ in 0..5 {
@@ -532,7 +692,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn no_burst_after_time_jump() {
         let (h, m, _) = start_engine();
-        h.set_active(true, ActivationReason::Manual);
+        activate(&h);
         h.status().await.unwrap();
 
         advance(60).await;
@@ -550,15 +710,15 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn activation_is_idempotent_and_release_happens_once() {
         let (h, m, _) = start_engine();
-        h.set_active(true, ActivationReason::Manual);
-        h.set_active(true, ActivationReason::Manual);
-        h.set_active(true, ActivationReason::Hotkey);
+        activate(&h);
+        activate(&h);
+        h.set_active(true, ActivationReason::Hotkey, None);
         let status = h.status().await.unwrap();
         assert_eq!(status.state, "active");
         assert_eq!(m.lock().unwrap().acquires, 1);
 
-        h.set_active(false, ActivationReason::Manual);
-        h.set_active(false, ActivationReason::Manual);
+        h.set_active(false, ActivationReason::Manual, None);
+        h.set_active(false, ActivationReason::Manual, None);
         let status = h.status().await.unwrap();
         assert_eq!(status.state, "off");
         assert_eq!(m.lock().unwrap().releases, 1);
@@ -567,7 +727,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn suspended_releases_inhibitor_and_stops_poking() {
         let (h, m, _) = start_engine();
-        h.set_active(true, ActivationReason::Manual);
+        activate(&h);
         h.status().await.unwrap();
 
         h.suspend(SuspendReason::OnBattery);
@@ -591,7 +751,7 @@ mod tests {
     async fn skips_poke_when_user_recently_active() {
         let (h, m, events) = start_engine();
         m.lock().unwrap().idle_secs = 5.0; // < interval / 2
-        h.set_active(true, ActivationReason::Manual);
+        activate(&h);
         h.status().await.unwrap();
 
         advance(60).await;
@@ -611,7 +771,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn permission_denied_poke_degrades_then_recovers() {
         let (h, m, _) = start_engine();
-        h.set_active(true, ActivationReason::Manual);
+        activate(&h);
         h.status().await.unwrap();
 
         m.lock().unwrap().poke_fail = Some(MockFailure::PermissionDenied);
@@ -630,7 +790,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn transient_poke_error_keeps_active_state() {
         let (h, m, _) = start_engine();
-        h.set_active(true, ActivationReason::Manual);
+        activate(&h);
         h.status().await.unwrap();
 
         m.lock().unwrap().poke_fail = Some(MockFailure::Other);
@@ -655,7 +815,7 @@ mod tests {
         let (h, fut) = start(platform, EngineSettings::default(), Box::new(|_| {}));
         tokio::spawn(fut);
 
-        h.set_active(true, ActivationReason::Manual);
+        activate(&h);
         let status = h.status().await.unwrap();
         assert_eq!(status.state, "degraded");
         assert!(status.inhibitor_active);
@@ -664,7 +824,7 @@ mod tests {
     #[tokio::test(start_paused = true)]
     async fn shutdown_releases_inhibitor() {
         let (h, m, _) = start_engine();
-        h.set_active(true, ActivationReason::Manual);
+        activate(&h);
         h.status().await.unwrap();
 
         h.shutdown();
@@ -690,5 +850,170 @@ mod tests {
         assert!(report.ok);
         assert!(!report.skipped);
         assert_eq!(m.lock().unwrap().pokes, 1);
+    }
+
+    // ---- M2: durations, schedule, gates ----
+
+    #[tokio::test(start_paused = true)]
+    async fn timed_activation_expires() {
+        let (h, m, _) = start_engine();
+        h.set_active(true, ActivationReason::Manual, Some(15 * 60));
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "active");
+        let remaining = status.remaining_secs.unwrap();
+        assert!((890..=900).contains(&remaining), "remaining={remaining}");
+
+        advance(14 * 60).await;
+        assert_eq!(h.status().await.unwrap().state, "active");
+
+        // Past the deadline (+ gate tick slack).
+        advance(70).await;
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "off");
+        assert_eq!(status.state_detail, "TimerExpired");
+        assert_eq!(m.lock().unwrap().releases, 1);
+    }
+
+    fn business_hours() -> EngineSettings {
+        EngineSettings {
+            schedule: ScheduleConfig {
+                enabled: true,
+                windows: vec![ScheduleWindow {
+                    days: vec![0, 1, 2, 3, 4],
+                    start: "09:00".into(),
+                    end: "18:00".into(),
+                }],
+            },
+            ..Default::default()
+        }
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn schedule_opens_and_closes() {
+        // Tuesday 08:55, before the window.
+        let (h, m, _, clock) = start_engine_full(business_hours(), at(2026, 8, 4, 8, 55));
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "off");
+
+        *clock.lock().unwrap() = at(2026, 8, 4, 9, 1);
+        advance(10).await;
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "active");
+        assert_eq!(status.state_detail, "Schedule");
+
+        *clock.lock().unwrap() = at(2026, 8, 4, 18, 1);
+        advance(10).await;
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "off");
+        assert_eq!(status.state_detail, "ScheduleClosed");
+        assert_eq!(m.lock().unwrap().releases, 1);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn manual_off_during_window_is_honored_until_reopen() {
+        let (h, _, _, clock) = start_engine_full(business_hours(), at(2026, 8, 4, 10, 0));
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "active");
+
+        // User turns it off mid-window: must stay off.
+        h.set_active(false, ActivationReason::Manual, None);
+        advance(120).await;
+        assert_eq!(h.status().await.unwrap().state, "off");
+
+        // Window closes overnight and reopens the next morning → active again.
+        *clock.lock().unwrap() = at(2026, 8, 4, 19, 0);
+        advance(10).await;
+        *clock.lock().unwrap() = at(2026, 8, 5, 9, 5);
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "active");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn manual_activation_outside_window_not_closed_by_schedule() {
+        let (h, _, _, clock) = start_engine_full(business_hours(), at(2026, 8, 4, 20, 0));
+        activate(&h);
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "active");
+
+        // Window opens then closes; a Manual activation must survive.
+        *clock.lock().unwrap() = at(2026, 8, 5, 10, 0);
+        advance(10).await;
+        *clock.lock().unwrap() = at(2026, 8, 5, 19, 0);
+        advance(10).await;
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "active");
+        assert_eq!(status.state_detail, "Manual");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn battery_gate_suspends_and_resumes() {
+        let mut settings = EngineSettings::default();
+        settings.conditions.only_on_ac = true;
+        let (h, m, _) = start_engine_with(settings);
+        activate(&h);
+        h.status().await.unwrap();
+
+        m.lock().unwrap().on_ac = Some(false);
+        advance(10).await;
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "suspended");
+        assert_eq!(status.state_detail, "OnBattery");
+        assert_eq!(m.lock().unwrap().releases, 1);
+
+        advance(600).await;
+        assert_eq!(m.lock().unwrap().pokes, 0, "no pokes on battery");
+
+        m.lock().unwrap().on_ac = Some(true);
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "active");
+        assert_eq!(m.lock().unwrap().acquires, 2);
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn process_gate_suspends_until_process_appears() {
+        let mut settings = EngineSettings::default();
+        settings.conditions.only_when_process_running = true;
+        settings.conditions.process_names = vec!["teams".into()];
+        let (h, m, _) = start_engine_with(settings);
+        m.lock().unwrap().process_running = false;
+        activate(&h);
+        advance(10).await;
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "suspended");
+        assert_eq!(status.state_detail, "ProcessNotRunning");
+
+        m.lock().unwrap().process_running = true;
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "active");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn lock_gate_suspends_while_locked() {
+        let mut settings = EngineSettings::default();
+        settings.conditions.pause_when_screen_locked = true;
+        let (h, m, _) = start_engine_with(settings);
+        activate(&h);
+        h.status().await.unwrap();
+
+        m.lock().unwrap().screen_locked = Some(true);
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "suspended");
+
+        m.lock().unwrap().screen_locked = Some(false);
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "active");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn apply_config_picks_up_already_open_window() {
+        let (h, _, _, _clock) = start_engine_full(EngineSettings::default(), at(2026, 8, 4, 10, 0));
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "off");
+
+        let s = business_hours();
+        h.apply_config(60, s.schedule, s.conditions);
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "active");
+        assert_eq!(status.state_detail, "Schedule");
     }
 }

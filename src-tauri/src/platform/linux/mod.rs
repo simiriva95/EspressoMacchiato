@@ -1,5 +1,6 @@
 pub mod activity_uinput;
 pub mod activity_xtest;
+pub mod conditions;
 pub mod idle;
 pub mod inhibitor;
 pub mod session;
@@ -108,6 +109,7 @@ pub fn platform() -> Platform {
         inhibitor: Box::new(inhibitor::LinuxInhibitor::default()),
         simulator: Box::new(LinuxActivitySimulator::new()),
         idle,
+        conditions: Box::new(conditions::LinuxConditionProbe::new()),
         power: Box::new(NullPowerMonitor),
         preflight: Arc::new(|| {
             let mut degradations = Vec::new();

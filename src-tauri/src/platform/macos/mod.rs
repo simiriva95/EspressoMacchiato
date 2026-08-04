@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod conditions;
 pub mod ffi;
 pub mod idle;
 pub mod inhibitor;
@@ -13,6 +14,7 @@ pub fn platform() -> Platform {
         inhibitor: Box::new(inhibitor::MacInhibitor::default()),
         simulator: Box::new(activity::MacActivitySimulator::new()),
         idle: Box::new(idle::MacIdleReader),
+        conditions: Box::new(conditions::MacConditionProbe::new()),
         power: Box::new(NullPowerMonitor),
         preflight: Arc::new(|| {
             if permissions::accessibility_trusted() {

@@ -6,8 +6,8 @@
 use std::sync::{Arc, Mutex};
 
 use super::{
-    ActivitySimulator, ActivityStrategy, Degradation, IdleReader, InhibitOptions, NullPowerMonitor,
-    Platform, PlatformError, SleepInhibitor,
+    ActivitySimulator, ActivityStrategy, ConditionProbe, Degradation, IdleReader, InhibitOptions,
+    NullPowerMonitor, Platform, PlatformError, SleepInhibitor,
 };
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -28,6 +28,11 @@ pub struct MockState {
     pub poke_fail: Option<MockFailure>,
     pub idle_fail: bool,
     pub degradations: Vec<Degradation>,
+    // Condition probe facts, all controllable from tests.
+    pub on_ac: Option<bool>,
+    pub battery_percent: Option<f32>,
+    pub screen_locked: Option<bool>,
+    pub process_running: bool,
 }
 
 impl Default for MockState {
@@ -45,6 +50,10 @@ impl Default for MockState {
             poke_fail: None,
             idle_fail: false,
             degradations: Vec::new(),
+            on_ac: Some(true),
+            battery_percent: Some(80.0),
+            screen_locked: Some(false),
+            process_running: true,
         }
     }
 }
@@ -135,6 +144,26 @@ impl IdleReader for MockIdleReader {
     }
 }
 
+pub struct MockConditionProbe(pub SharedMock);
+
+impl ConditionProbe for MockConditionProbe {
+    fn on_ac(&self) -> Option<bool> {
+        self.0.lock().unwrap().on_ac
+    }
+
+    fn battery_percent(&self) -> Option<f32> {
+        self.0.lock().unwrap().battery_percent
+    }
+
+    fn screen_locked(&self) -> Option<bool> {
+        self.0.lock().unwrap().screen_locked
+    }
+
+    fn any_process_running(&self, _names: &[String]) -> bool {
+        self.0.lock().unwrap().process_running
+    }
+}
+
 pub fn mock_platform() -> (Platform, SharedMock) {
     let shared: SharedMock = Arc::new(Mutex::new(MockState::default()));
     let preflight_shared = shared.clone();
@@ -142,6 +171,7 @@ pub fn mock_platform() -> (Platform, SharedMock) {
         inhibitor: Box::new(MockInhibitor(shared.clone())),
         simulator: Box::new(MockSimulator(shared.clone())),
         idle: Box::new(MockIdleReader(shared.clone())),
+        conditions: Box::new(MockConditionProbe(shared.clone())),
         power: Box::new(NullPowerMonitor),
         preflight: Arc::new(move || preflight_shared.lock().unwrap().degradations.clone()),
     };

@@ -80,6 +80,49 @@ pub trait IdleReader: Send + Sync {
     fn source(&self) -> &'static str; // e.g. "CGEventSource", "XScreenSaver", "Mutter"
 }
 
+/// Observations feeding the opt-in gates (core/conditions.rs). `None`
+/// means "not observable on this system" — gates never fire on missing
+/// data (the one documented exception is the battery threshold).
+pub trait ConditionProbe: Send + Sync {
+    fn on_ac(&self) -> Option<bool>;
+    fn battery_percent(&self) -> Option<f32>;
+    fn screen_locked(&self) -> Option<bool>;
+    fn any_process_running(&self, names: &[String]) -> bool;
+}
+
+/// Case-insensitive substring match on executable names, shared by the
+/// real probes. sysinfo refresh is bounded by the 10 s gate tick.
+pub struct ProcessMatcher(std::sync::Mutex<sysinfo::System>);
+
+impl ProcessMatcher {
+    pub fn new() -> Self {
+        Self(std::sync::Mutex::new(sysinfo::System::new()))
+    }
+
+    pub fn any_running(&self, names: &[String]) -> bool {
+        let needles: Vec<String> = names
+            .iter()
+            .map(|n| n.trim().to_lowercase())
+            .filter(|n| !n.is_empty())
+            .collect();
+        if needles.is_empty() {
+            return false;
+        }
+        let mut sys = self.0.lock().unwrap();
+        sys.refresh_processes(sysinfo::ProcessesToUpdate::All, true);
+        sys.processes().values().any(|p| {
+            let name = p.name().to_string_lossy().to_lowercase();
+            needles.iter().any(|needle| name.contains(needle))
+        })
+    }
+}
+
+impl Default for ProcessMatcher {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 pub trait PowerMonitor: Send + Sync {
     #[allow(dead_code)] // wired to the energy panel in M4
     fn snapshot(&self) -> Result<PowerSnapshot, PlatformError>;
@@ -138,6 +181,7 @@ pub struct Platform {
     pub inhibitor: Box<dyn SleepInhibitor>,
     pub simulator: Box<dyn ActivitySimulator>,
     pub idle: Box<dyn IdleReader>,
+    pub conditions: Box<dyn ConditionProbe>,
     #[allow(dead_code)] // energy panel (M4)
     pub power: Box<dyn PowerMonitor>,
     /// Re-checkable capability probe (permissions can change at runtime).

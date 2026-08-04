@@ -1,6 +1,8 @@
 //! Engine state machine types. Pure data, no I/O.
 
-use std::time::Instant;
+// tokio's Instant (not std's) so deadlines respect the paused clock in
+// tests; identical to std::time::Instant at runtime.
+use tokio::time::Instant;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
 #[serde(rename_all = "snake_case")]
