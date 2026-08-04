@@ -76,6 +76,11 @@ pub struct Settings {
     pub hotkey: String,
     /// "HH:MM" used by the "until end of day" duration option.
     pub end_of_day: String,
+    /// "system" | "light" | "dark"
+    pub theme: String,
+    /// "system" | "it" | "en"
+    pub language: String,
+    pub onboarding_done: bool,
 }
 
 impl Default for Settings {
@@ -90,6 +95,9 @@ impl Default for Settings {
             activate_on_start: false,
             hotkey: defaults::HOTKEY.into(),
             end_of_day: defaults::END_OF_DAY.into(),
+            theme: "system".into(),
+            language: "system".into(),
+            onboarding_done: false,
         }
     }
 }

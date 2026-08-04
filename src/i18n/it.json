@@ -1,0 +1,131 @@
+{
+  "app": { "name": "EspressoMacchiato" },
+  "state": {
+    "off": "PRONTO",
+    "active": "IN FUNZIONE",
+    "suspended": "SOSPESO",
+    "degraded": "RIDOTTO",
+    "remaining": "{{minutes}} min rimasti"
+  },
+  "detail": {
+    "Manual": "attivato da te",
+    "Hotkey": "attivato con la scorciatoia",
+    "Schedule": "attivato dalla pianificazione",
+    "Autostart": "attivato all'avvio",
+    "NeverStarted": "tocca Attiva per iniziare",
+    "UserToggle": "spento da te",
+    "TimerExpired": "timer scaduto",
+    "ScheduleClosed": "finestra oraria chiusa",
+    "Quit": "in chiusura",
+    "OnBattery": "in pausa: sei a batteria",
+    "ProcessNotRunning": "in pausa: l'app richiesta non è aperta",
+    "ScreenLocked": "in pausa: schermo bloccato"
+  },
+  "engine": {
+    "activate": "Attiva",
+    "deactivate": "Disattiva",
+    "duration": "Durata",
+    "indefinite": "Senza limite",
+    "minutes": "{{count}} minuti",
+    "hours_one": "{{count}} ora",
+    "hours_other": "{{count}} ore",
+    "untilTime": "Fino a un orario…",
+    "untilEndOfDay": "Fino a fine giornata ({{time}})"
+  },
+  "idle": {
+    "title": "Contatore di inattività",
+    "sourcePrefix": "come lo vede il sistema · fonte:",
+    "notReadable": "Non rilevabile su questo sistema: {{error}}",
+    "pokes": "Poke in questa sessione",
+    "lastPoke": "Ultimo poke",
+    "lastResult": "Ultimo esito",
+    "ok": "ok",
+    "skipped": "saltato: stai usando la macchina",
+    "nextPoke": "Prossimo poke tra",
+    "testNow": "Prova ora",
+    "testResult": "Poke inviato. Inattività: {{before}}s → {{after}}s",
+    "testFailed": "Poke non riuscito: {{error}}"
+  },
+  "degraded": {
+    "title": "Funzionalità ridotta",
+    "openSystemSettings": "Apri impostazioni di sistema"
+  },
+  "settings": {
+    "title": "Impostazioni",
+    "interval": "Intervallo tra i poke",
+    "intervalHelp": "I client di presenza passano ad Assente dopo ~5 minuti di inattività: resta ben sotto quella soglia.",
+    "strategy": "Strategia",
+    "strategies": {
+      "zero_mouse_move": "Movimento mouse a delta zero (invisibile)",
+      "harmless_key_tap": "Tocco di un tasto innocuo (F15)",
+      "nudge_and_return": "Spostamento di 1px e ritorno (visibile)"
+    },
+    "conditions": "Condizioni",
+    "pauseWhenInputRecent": "Salta i poke mentre uso davvero la macchina",
+    "onlyOnAc": "Sospendi quando sono a batteria",
+    "onlyBelow": "solo sotto il",
+    "anyLevel": "% (vuoto = sempre)",
+    "onlyWhenProcessRunning": "Solo mentre una di queste app è aperta",
+    "processNames": "Nomi dei processi, separati da virgola",
+    "pauseWhenScreenLocked": "Sospendi con lo schermo bloccato",
+    "schedule": "Pianificazione",
+    "scheduleEnabled": "Attivati da solo in queste finestre orarie",
+    "windowStart": "Inizio finestra",
+    "windowEnd": "Fine finestra",
+    "remove": "Rimuovi",
+    "addWindow": "Aggiungi finestra",
+    "startup": "Avvio e scorciatoie",
+    "autostart": "Avvia al login",
+    "activateOnStart": "Attivati appena parti",
+    "hotkey": "Scorciatoia globale",
+    "hotkeyPlaceholder": "CmdOrCtrl+Alt+E (vuoto = nessuna)",
+    "endOfDay": "Fine giornata (per \"fino a fine giornata\")",
+    "appearance": "Aspetto e lingua",
+    "theme": "Tema",
+    "themeSystem": "Sistema",
+    "themeLight": "Chiaro",
+    "themeDark": "Scuro",
+    "language": "Lingua",
+    "languageSystem": "Sistema",
+    "reopenOnboarding": "Rivedi la configurazione iniziale"
+  },
+  "days": {
+    "0": "Lun",
+    "1": "Mar",
+    "2": "Mer",
+    "3": "Gio",
+    "4": "Ven",
+    "5": "Sab",
+    "6": "Dom"
+  },
+  "onboarding": {
+    "welcomeTitle": "Tieni attiva la presenza",
+    "welcomeBody1": "EspressoMacchiato impedisce al computer di addormentarsi e azzera il contatore di inattività, così Teams e simili ti vedono disponibile.",
+    "welcomeBody2": "Non sposta il cursore, non registra i tuoi input, non manda nulla in rete.",
+    "welcomeBody3": "Verifica le policy della tua organizzazione: l'app agisce solo sull'inattività locale.",
+    "permissionsTitle": "Permessi",
+    "allGood": "Tutto a posto: puoi partire.",
+    "missing": "Manca qualcosa: senza questo permesso l'app funziona in modalità ridotta.",
+    "openSystemSettings": "Apri impostazioni di sistema",
+    "copyCommands": "Copia i comandi",
+    "copied": "Copiati",
+    "recheck": "Ricontrollo ogni pochi secondi.",
+    "prefsTitle": "Preferenze rapide",
+    "back": "Indietro",
+    "next": "Avanti",
+    "skip": "Salta",
+    "done": "Fatto"
+  },
+  "popover": {
+    "openSettings": "Apri impostazioni"
+  },
+  "a11y": {
+    "stateAnnouncement": "Stato: {{state}}",
+    "idleMonitorRegion": "Contatore di inattività",
+    "dayToggle": "Attivo il {{day}}"
+  },
+  "common": {
+    "dash": "—",
+    "saveError": "Salvataggio non riuscito: {{error}}"
+  }
+}

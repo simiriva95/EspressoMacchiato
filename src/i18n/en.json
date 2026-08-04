@@ -1,0 +1,131 @@
+{
+  "app": { "name": "EspressoMacchiato" },
+  "state": {
+    "off": "READY",
+    "active": "RUNNING",
+    "suspended": "SUSPENDED",
+    "degraded": "DEGRADED",
+    "remaining": "{{minutes}} min left"
+  },
+  "detail": {
+    "Manual": "activated by you",
+    "Hotkey": "activated via hotkey",
+    "Schedule": "activated by the schedule",
+    "Autostart": "activated on startup",
+    "NeverStarted": "press Activate to start",
+    "UserToggle": "turned off by you",
+    "TimerExpired": "timer expired",
+    "ScheduleClosed": "schedule window closed",
+    "Quit": "shutting down",
+    "OnBattery": "paused: on battery power",
+    "ProcessNotRunning": "paused: required app not running",
+    "ScreenLocked": "paused: screen is locked"
+  },
+  "engine": {
+    "activate": "Activate",
+    "deactivate": "Deactivate",
+    "duration": "Duration",
+    "indefinite": "No limit",
+    "minutes": "{{count}} minutes",
+    "hours_one": "{{count}} hour",
+    "hours_other": "{{count}} hours",
+    "untilTime": "Until a time…",
+    "untilEndOfDay": "Until end of day ({{time}})"
+  },
+  "idle": {
+    "title": "Idle counter",
+    "sourcePrefix": "as the OS sees it · source:",
+    "notReadable": "Not readable on this system: {{error}}",
+    "pokes": "Pokes this session",
+    "lastPoke": "Last poke",
+    "lastResult": "Last result",
+    "ok": "ok",
+    "skipped": "skipped: you are using the machine",
+    "nextPoke": "Next poke in",
+    "testNow": "Test now",
+    "testResult": "Poke sent. Idle: {{before}}s → {{after}}s",
+    "testFailed": "Poke failed: {{error}}"
+  },
+  "degraded": {
+    "title": "Reduced functionality",
+    "openSystemSettings": "Open system settings"
+  },
+  "settings": {
+    "title": "Settings",
+    "interval": "Poke interval",
+    "intervalHelp": "Presence clients typically go Away after ~5 minutes of idle: stay well below that.",
+    "strategy": "Strategy",
+    "strategies": {
+      "zero_mouse_move": "Zero-delta mouse move (invisible)",
+      "harmless_key_tap": "Harmless key tap (F15)",
+      "nudge_and_return": "Nudge 1px and return (visible)"
+    },
+    "conditions": "Conditions",
+    "pauseWhenInputRecent": "Skip pokes while I'm actually using the machine",
+    "onlyOnAc": "Suspend on battery power",
+    "onlyBelow": "only below",
+    "anyLevel": "% (empty = always)",
+    "onlyWhenProcessRunning": "Only while one of these apps is running",
+    "processNames": "Process names, comma separated",
+    "pauseWhenScreenLocked": "Suspend while the screen is locked",
+    "schedule": "Schedule",
+    "scheduleEnabled": "Activate automatically during these windows",
+    "windowStart": "Window start",
+    "windowEnd": "Window end",
+    "remove": "Remove",
+    "addWindow": "Add window",
+    "startup": "Startup & shortcuts",
+    "autostart": "Start at login",
+    "activateOnStart": "Activate automatically on start",
+    "hotkey": "Global hotkey",
+    "hotkeyPlaceholder": "CmdOrCtrl+Alt+E (empty = none)",
+    "endOfDay": "End of day (for \"until end of day\")",
+    "appearance": "Appearance & language",
+    "theme": "Theme",
+    "themeSystem": "System",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "language": "Language",
+    "languageSystem": "System",
+    "reopenOnboarding": "Review the initial setup"
+  },
+  "days": {
+    "0": "Mon",
+    "1": "Tue",
+    "2": "Wed",
+    "3": "Thu",
+    "4": "Fri",
+    "5": "Sat",
+    "6": "Sun"
+  },
+  "onboarding": {
+    "welcomeTitle": "Keep your presence alive",
+    "welcomeBody1": "EspressoMacchiato keeps your machine awake and resets the idle counter, so Teams and friends keep showing you as available.",
+    "welcomeBody2": "It doesn't move your cursor, doesn't record your input, sends nothing over the network.",
+    "welcomeBody3": "Check your organization's policies: the app only touches local idle time.",
+    "permissionsTitle": "Permissions",
+    "allGood": "All set: you're good to go.",
+    "missing": "Something's missing: without this permission the app runs in declared degraded mode.",
+    "openSystemSettings": "Open system settings",
+    "copyCommands": "Copy the commands",
+    "copied": "Copied",
+    "recheck": "Re-checking every few seconds.",
+    "prefsTitle": "Quick preferences",
+    "back": "Back",
+    "next": "Next",
+    "skip": "Skip",
+    "done": "Done"
+  },
+  "popover": {
+    "openSettings": "Open settings"
+  },
+  "a11y": {
+    "stateAnnouncement": "State: {{state}}",
+    "idleMonitorRegion": "Idle counter",
+    "dayToggle": "Active on {{day}}"
+  },
+  "common": {
+    "dash": "—",
+    "saveError": "Save failed: {{error}}"
+  }
+}

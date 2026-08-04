@@ -3,6 +3,8 @@
 
 use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
 use tauri::tray::TrayIconBuilder;
+#[cfg(target_os = "macos")]
+use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_notification::NotificationExt;
 
@@ -32,7 +34,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         ],
     )?;
 
-    let tray = TrayIconBuilder::with_id("main")
+    let builder = TrayIconBuilder::with_id("main")
         .icon(
             app.default_window_icon()
                 .expect("bundled window icon")
@@ -41,7 +43,9 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .icon_as_template(true)
         .tooltip("EspressoMacchiato — Off")
         .menu(&menu)
-        .show_menu_on_left_click(true)
+        // macOS: left click opens the popover, right click the menu.
+        // Linux: the native menu IS the primary interface (spec P3).
+        .show_menu_on_left_click(cfg!(not(target_os = "macos")))
         .on_menu_event(|app, event| match event.id.as_ref() {
             "toggle" => app.state::<AppState>().engine.toggle(),
             "open" => {
@@ -58,8 +62,22 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 app.exit(0);
             }
             _ => {}
-        })
-        .build(app)?;
+        });
+
+    #[cfg(target_os = "macos")]
+    let builder = builder.on_tray_icon_event(|tray, event| {
+        if let TrayIconEvent::Click {
+            button: MouseButton::Left,
+            button_state: MouseButtonState::Up,
+            rect,
+            ..
+        } = event
+        {
+            toggle_popover(tray.app_handle(), rect);
+        }
+    });
+
+    let tray = builder.build(app)?;
 
     app.manage(TrayHandles {
         tray,
@@ -67,6 +85,44 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         toggle_item,
     });
     Ok(())
+}
+
+/// Show the quick popover anchored under the tray icon, or hide it if
+/// already visible. macOS only: popover placement next to a tray icon is
+/// not reliable on Linux (spec P3), where the native menu is primary.
+#[cfg(target_os = "macos")]
+fn toggle_popover(app: &AppHandle, rect: tauri::Rect) {
+    let Some(popover) = app.get_webview_window("popover") else {
+        return;
+    };
+    if popover.is_visible().unwrap_or(false) {
+        let _ = popover.hide();
+        return;
+    }
+    let scale = popover.scale_factor().unwrap_or(2.0);
+    let (icon_x, icon_y, icon_w, icon_h) = physical_rect(&rect, scale);
+    let width = popover
+        .outer_size()
+        .map(|s| f64::from(s.width))
+        .unwrap_or(360.0 * scale);
+    let x = icon_x + icon_w / 2.0 - width / 2.0;
+    let y = icon_y + icon_h + 4.0 * scale;
+    let _ = popover.set_position(tauri::PhysicalPosition::new(x, y));
+    let _ = popover.show();
+    let _ = popover.set_focus();
+}
+
+#[cfg(target_os = "macos")]
+fn physical_rect(rect: &tauri::Rect, scale: f64) -> (f64, f64, f64, f64) {
+    let (x, y) = match rect.position {
+        tauri::Position::Physical(p) => (f64::from(p.x), f64::from(p.y)),
+        tauri::Position::Logical(p) => (p.x * scale, p.y * scale),
+    };
+    let (w, h) = match rect.size {
+        tauri::Size::Physical(s) => (f64::from(s.width), f64::from(s.height)),
+        tauri::Size::Logical(s) => (s.width * scale, s.height * scale),
+    };
+    (x, y, w, h)
 }
 
 /// Reflect engine state in the tray menu and tooltip.

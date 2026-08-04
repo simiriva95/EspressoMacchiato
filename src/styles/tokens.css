@@ -1,0 +1,63 @@
+/* Design tokens — the Italian bar counter. Everything derives from here;
+   no hex values in components. Reference: spec §7. */
+
+:root {
+  /* Palette */
+  --tostato: #241814; /* dark background */
+  --tostato-alt: #31221c; /* elevated surfaces */
+  --acciaio: #8c9196; /* brushed steel: borders, secondary */
+  --acciaio-scuro: #5a5f63;
+  --crema: #e4c79a; /* primary accent, fills */
+  --macchiato: #f2e9de; /* text on dark, light background */
+  --verde-pronto: #3fbf6f; /* active state */
+  --rosso-bar: #a8272c; /* alerts, bar sign red */
+}
+
+/* Semantic tokens, dark scheme (default). --alert stays readable as TEXT
+   on dark (rosso-bar itself fails contrast on tostato: fill-only there). */
+:root {
+  --bg: var(--tostato);
+  --surface: var(--tostato-alt);
+  --ink: var(--macchiato);
+  /* --acciaio passes ~5.5:1 on --tostato but spec prefers macchiato @ 70% */
+  --ink-2: color-mix(in srgb, var(--macchiato) 72%, transparent);
+  --line: color-mix(in srgb, var(--acciaio) 35%, transparent);
+  --accent: var(--crema);
+  --on-accent: var(--tostato);
+  --ok: var(--verde-pronto);
+  --alert: #e36b6f;
+  --alert-fill: var(--rosso-bar);
+  --on-alert-fill: var(--macchiato);
+}
+
+/* Light scheme values (spec: macchiato background, tostato text, accents
+   unchanged — except states, re-derived for AA contrast on light). */
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) {
+    --bg: var(--macchiato);
+    --surface: #faf4ea;
+    --ink: var(--tostato);
+    --ink-2: var(--acciaio-scuro);
+    --line: color-mix(in srgb, var(--acciaio) 55%, transparent);
+    --accent: var(--crema);
+    --on-accent: var(--tostato);
+    --ok: #1d7a45;
+    --alert: var(--rosso-bar);
+    --alert-fill: var(--rosso-bar);
+    --on-alert-fill: var(--macchiato);
+  }
+}
+
+:root[data-theme="light"] {
+  --bg: var(--macchiato);
+  --surface: #faf4ea;
+  --ink: var(--tostato);
+  --ink-2: var(--acciaio-scuro);
+  --line: color-mix(in srgb, var(--acciaio) 55%, transparent);
+  --accent: var(--crema);
+  --on-accent: var(--tostato);
+  --ok: #1d7a45;
+  --alert: var(--rosso-bar);
+  --alert-fill: var(--rosso-bar);
+  --on-alert-fill: var(--macchiato);
+}

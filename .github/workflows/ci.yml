@@ -59,6 +59,9 @@ jobs:
       - name: TypeScript check
         run: npx tsc --noEmit
 
+      - name: Lint (eslint + jsx-a11y)
+        run: npm run lint
+
       - name: Frontend tests
         run: npm test
 

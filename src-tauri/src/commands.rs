@@ -69,6 +69,16 @@ pub fn open_permission_settings(app: tauri::AppHandle) -> Result<(), String> {
     }
 }
 
+/// Bring the settings window to the front (used by the popover).
+#[tauri::command]
+pub fn open_settings_window(app: tauri::AppHandle) {
+    use tauri::Manager;
+    if let Some(window) = app.get_webview_window("main") {
+        let _ = window.show();
+        let _ = window.set_focus();
+    }
+}
+
 #[tauri::command]
 pub fn get_settings(state: State<'_, AppState>) -> Settings {
     state.settings.lock().unwrap().clone()
