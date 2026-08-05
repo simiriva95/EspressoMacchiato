@@ -14,8 +14,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - os: macos-14 # arm64
-          - os: macos-13 # x86_64
+          - os: macos-14 # arm64 (Apple Silicon)
+          # macos-13 (Intel) omitted: GitHub's Intel macOS runners are being
+          # retired and their queue frequently never schedules. x86 macOS is
+          # covered by the local cross-check in CONTRIBUTING.
           - os: ubuntu-22.04
     runs-on: ${{ matrix.os }}
     steps:
