@@ -1,7 +1,7 @@
-// Signature animated coffee carafe for the Presence hero (a line-art pot,
-// our own drawing). The coffee level IS the live idle progress: it fills
-// toward the interval with a gently waving surface, and drains on a poke.
-// Steam rises while active. Pure SVG + CSS, reduced-motion aware.
+// Signature animated cup for the Presence hero (our own line-art drawing).
+// Bold steam sweeps up while active; the coffee level IS the live idle
+// progress — it fills toward the interval and drains on a poke. Pure SVG +
+// CSS, reduced-motion aware.
 
 export function BrewingCup({
   active,
@@ -11,20 +11,18 @@ export function BrewingCup({
   active: boolean;
   /** 0..1 coffee level (idle progress toward the interval). */
   fill: number;
-  /** CSS color for the coffee / accents. */
+  /** CSS color for the coffee / steam / accents. */
   color: string;
 }) {
   const level = Math.max(0, Math.min(1, fill));
-  // Carafe bowl: circle centered (60,74), radius 38 → interior y 36..112.
-  const top = 40;
-  const bottom = 110;
-  const surfaceY = bottom - level * (bottom - top);
+  // Cup interior spans y 52..92; coffee surface rises with the level.
+  const surfaceY = 92 - level * 40;
 
   return (
     <svg viewBox="0 0 120 120" className="h-full w-full" aria-hidden="true">
       <defs>
-        <clipPath id="carafe-bowl">
-          <circle cx="60" cy="74" r="36" />
+        <clipPath id="cup-interior">
+          <path d="M34 50 h52 l-5 40 a21 21 0 0 1-42 0 Z" />
         </clipPath>
         <linearGradient id="coffee-grad" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0%" stopColor={color} stopOpacity="0.95" />
@@ -32,81 +30,76 @@ export function BrewingCup({
         </linearGradient>
       </defs>
 
-      {/* Steam */}
+      {/* Bold steam: three thick wisps on an S-curve */}
       {active && (
-        <g stroke={color} strokeWidth="3" strokeLinecap="round" fill="none">
+        <g
+          stroke={color}
+          strokeWidth="6"
+          strokeLinecap="round"
+          fill="none"
+          opacity="0.9"
+        >
           <path
             className="steam"
-            style={{ ["--drift" as string]: "-3px" }}
-            d="M50 26 q-4 -6 0 -12 q4 -6 0 -12"
+            style={{ ["--drift" as string]: "-4px" }}
+            d="M44 44 q-9 -9 0 -18 q9 -9 0 -18"
           />
           <path
             className="steam"
-            style={{ ["--drift" as string]: "3px", animationDelay: "0.8s" }}
-            d="M64 26 q4 -6 0 -12 q-4 -6 0 -12"
+            style={{ ["--drift" as string]: "3px", animationDelay: "0.7s" }}
+            d="M60 44 q9 -9 0 -18 q-9 -9 0 -18"
+          />
+          <path
+            className="steam"
+            style={{ ["--drift" as string]: "5px", animationDelay: "1.4s" }}
+            d="M76 44 q-9 -9 0 -18 q9 -9 0 -18"
           />
         </g>
       )}
 
-      {/* Coffee fill with a waving surface, clipped to the bowl */}
-      <g clipPath="url(#carafe-bowl)">
+      {/* Coffee fill with a waving surface, clipped to the interior */}
+      <g clipPath="url(#cup-interior)">
         <path
-          d={`M20 ${surfaceY}
-              q 10 -5 20 0 t 20 0 t 20 0 t 20 0
-              L 100 120 L 20 120 Z`}
+          d={`M28 ${surfaceY} q 8 -5 16 0 t 16 0 t 16 0 t 16 0 L92 120 L28 120 Z`}
           fill="url(#coffee-grad)"
           style={{ transition: "d 0.9s ease" }}
         >
           {active && (
             <animate
               attributeName="d"
-              dur="3.2s"
+              dur="3s"
               repeatCount="indefinite"
-              values={`M20 ${surfaceY} q 10 -5 20 0 t 20 0 t 20 0 t 20 0 L100 120 L20 120 Z;
-                       M20 ${surfaceY} q 10 5 20 0 t 20 0 t 20 0 t 20 0 L100 120 L20 120 Z;
-                       M20 ${surfaceY} q 10 -5 20 0 t 20 0 t 20 0 t 20 0 L100 120 L20 120 Z`}
+              values={`M28 ${surfaceY} q 8 -5 16 0 t 16 0 t 16 0 t 16 0 L92 120 L28 120 Z;
+                       M28 ${surfaceY} q 8 5 16 0 t 16 0 t 16 0 t 16 0 L92 120 L28 120 Z;
+                       M28 ${surfaceY} q 8 -5 16 0 t 16 0 t 16 0 t 16 0 L92 120 L28 120 Z`}
             />
           )}
         </path>
       </g>
 
-      {/* Bowl outline */}
-      <circle
-        cx="60"
-        cy="74"
-        r="36"
-        fill="none"
-        stroke="var(--ink)"
-        strokeWidth="4"
-      />
-      {/* Neck + lid */}
+      {/* Cup outline */}
       <path
-        d="M40 42 L44 24 h32 l4 18"
+        d="M34 50 h52 l-5 40 a21 21 0 0 1-42 0 Z"
         fill="none"
         stroke="var(--ink)"
         strokeWidth="4"
         strokeLinejoin="round"
       />
+      {/* Handle */}
       <path
-        d="M40 42 h40"
-        stroke={color}
+        d="M86 54 a14 14 0 0 1 0 26"
+        fill="none"
+        stroke="var(--ink)"
         strokeWidth="4"
         strokeLinecap="round"
       />
-      {/* Tubular handle on the right */}
+      {/* Saucer */}
       <path
-        d="M88 42 h10 a8 8 0 0 1 8 8 v34"
-        fill="none"
-        stroke="var(--accent)"
-        strokeWidth="5"
+        d="M28 100 h64"
+        stroke="var(--ink)"
+        strokeWidth="4"
         strokeLinecap="round"
       />
-      {/* Graduation ticks */}
-      <g stroke="var(--ink-2)" strokeWidth="3.5" strokeLinecap="round">
-        <path d="M74 64 h8" />
-        <path d="M74 78 h8" />
-        <path d="M74 92 h8" />
-      </g>
     </svg>
   );
 }
