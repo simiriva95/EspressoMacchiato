@@ -4,7 +4,6 @@
   "description": "Capability for the settings window and the tray popover",
   "windows": [
     "main",
-    "popover",
     "hud"
   ],
   "permissions": [

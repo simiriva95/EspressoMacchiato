@@ -6,7 +6,7 @@ import { render } from "@testing-library/react";
 import axe from "axe-core";
 import { describe, expect, it } from "vitest";
 import { Dashboard } from "./windows/Dashboard";
-import { Popover } from "./windows/Popover";
+import { Hud } from "./windows/Hud";
 
 async function expectNoViolations(container: HTMLElement) {
   const results = await axe.run(container, {
@@ -25,8 +25,8 @@ describe("accessibility (axe)", () => {
     await expectNoViolations(container);
   }, 15000);
 
-  it("Popover has no violations", async () => {
-    const { container, findByTestId } = render(<Popover />);
+  it("HUD has no violations", async () => {
+    const { container, findByTestId } = render(<Hud />);
     await findByTestId("idle-value");
     await expectNoViolations(container);
   }, 15000);

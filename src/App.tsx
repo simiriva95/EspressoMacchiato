@@ -1,5 +1,4 @@
 import { Hud } from "./windows/Hud";
-import { Popover } from "./windows/Popover";
 import { Dashboard } from "./windows/Dashboard";
 
 function getWindowLabel(): string {
@@ -26,7 +25,6 @@ function getWindowLabel(): string {
 
 function App() {
   const label = getWindowLabel();
-  if (label === "popover") return <Popover />;
   if (label === "hud") return <Hud />;
   return <Dashboard />;
 }

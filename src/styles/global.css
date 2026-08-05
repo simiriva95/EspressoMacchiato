@@ -131,6 +131,65 @@ select {
   }
 }
 
+/* Rising steam wisps above the cup (Presence hero). */
+@keyframes steam-rise {
+  0% {
+    opacity: 0;
+    transform: translateY(6px) scaleY(0.6);
+  }
+  25% {
+    opacity: 0.8;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-18px) scaleY(1.2) translateX(var(--drift, 0));
+  }
+}
+.steam {
+  transform-origin: bottom center;
+  animation: steam-rise 2.6s ease-out infinite;
+}
+
+/* Slow breathing pulse for the active ring. */
+@keyframes ring-breathe {
+  0%,
+  100% {
+    opacity: 0.9;
+  }
+  50% {
+    opacity: 0.55;
+  }
+}
+.ring-breathe {
+  animation: ring-breathe 3.2s ease-in-out infinite;
+}
+
+/* Staggered card entrance on section change. */
+@keyframes rise-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.rise-in {
+  animation: rise-in 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .steam,
+  .ring-breathe,
+  .rise-in {
+    animation: none !important;
+  }
+  .steam {
+    opacity: 0.5;
+  }
+}
+
 .visually-hidden {
   position: absolute;
   width: 1px;

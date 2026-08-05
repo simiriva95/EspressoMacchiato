@@ -8,14 +8,29 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_notification::NotificationExt;
 
+use std::sync::Mutex;
+
 use crate::core::events::StatusSnapshot;
 use crate::AppState;
+
+/// What the current icon frame should look like — updated by `sync`, read by
+/// the animation task so it can redraw steam frames without an engine query.
+#[derive(Clone, Default)]
+struct TrayVisual {
+    tint: Option<[u8; 3]>,
+    steam: bool,
+    ring: Option<f64>,
+    template: bool,
+    /// Animate (redraw steam frames) only while the engine is active.
+    animate: bool,
+}
 
 pub struct TrayHandles {
     tray: tauri::tray::TrayIcon,
     status_item: MenuItem<tauri::Wry>,
     toggle_item: MenuItem<tauri::Wry>,
     battery_item: MenuItem<tauri::Wry>,
+    visual: Mutex<TrayVisual>,
 }
 
 /// Tray menu copy in the app language (the native menu is the primary
@@ -89,6 +104,17 @@ fn seconds_until_end_of_day(app: &AppHandle) -> Option<u64> {
 /// the cup. `None` tint = solid black for the macOS template icon (the OS
 /// recolors it for light/dark menu bars).
 fn cup_icon(tint: Option<[u8; 3]>, steam: bool, ring: Option<f64>) -> tauri::image::Image<'static> {
+    cup_icon_phase(tint, steam, ring, 0.0)
+}
+
+/// `phase` in 0..1 drives the steam animation: two curls rise and fade on a
+/// loop. 0 = static frame (used everywhere except the animation task).
+fn cup_icon_phase(
+    tint: Option<[u8; 3]>,
+    steam: bool,
+    ring: Option<f64>,
+    phase: f64,
+) -> tauri::image::Image<'static> {
     const S: usize = 44;
     const SS: usize = 4; // supersampling factor for crisp curves
     let [r, g, b] = tint.unwrap_or([0, 0, 0]);
@@ -127,12 +153,29 @@ fn cup_icon(tint: Option<[u8; 3]>, steam: bool, ring: Option<f64>) -> tauri::ima
         // Saucer.
         let saucer = rounded_rect(x, y, cx - 1.0, 35.5, 13.0, 1.6, 1.6);
         d = d.min(saucer);
-        if steam {
-            let s1 = rounded_rect(x, y, cx - 4.5, 9.5, 1.2, 3.4, 1.2);
-            let s2 = rounded_rect(x, y, cx + 2.0, 8.5, 1.2, 3.4, 1.2);
-            d = d.min(s1).min(s2);
-        }
         (0.5 - d).clamp(0.0, 1.0)
+    };
+
+    // Steam: two curls that rise and fade on a loop, offset in time. Drawn
+    // separately from the cup so their alpha can animate. `phase` 0..1.
+    let steam_alpha = |px: f64, py: f64| -> f64 {
+        if !steam {
+            return 0.0;
+        }
+        let curl = |cx_s: f64, p: f64| -> f64 {
+            let local = (phase + p).fract(); // 0..1 progress up
+            let x = sx0(px);
+            let y = cx + (py - cx) / scale;
+            // Rises from y≈13 to y≈3, gentle horizontal sway.
+            let base_y = 13.0 - local * 10.0;
+            let sway = (local * std::f64::consts::TAU).sin() * 1.3;
+            let d = rounded_rect(x, y, cx_s + sway, base_y, 1.1, 2.6, 1.1);
+            let cov = (0.5 - d).clamp(0.0, 1.0);
+            // Fade in at the start, out toward the top.
+            let fade = (local * 4.0).min(1.0) * (1.0 - local).powf(0.7);
+            cov * fade
+        };
+        curl(cx - 4.5, 0.0).max(curl(cx + 2.0, 0.5))
     };
 
     // Progress arc: stroked circle from 12 o'clock, clockwise, drawn for the
@@ -168,6 +211,7 @@ fn cup_icon(tint: Option<[u8; 3]>, steam: bool, ring: Option<f64>) -> tauri::ima
                     if let Some(fraction) = ring {
                         c = c.max(arc(x, y, fraction));
                     }
+                    c = c.max(steam_alpha(x, y));
                     acc += c;
                 }
             }
@@ -233,7 +277,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .icon_as_template(true)
         .tooltip("EspressoMacchiato — Off")
         .menu(&menu)
-        // macOS: left click opens the popover, right click the menu.
+        // macOS: left click opens the dashboard, right click the menu.
         // Linux: the native menu IS the primary interface (spec P3).
         .show_menu_on_left_click(cfg!(not(target_os = "macos")))
         .on_menu_event(|app, event| match event.id.as_ref() {
@@ -264,11 +308,10 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         if let TrayIconEvent::Click {
             button: MouseButton::Left,
             button_state: MouseButtonState::Up,
-            rect,
             ..
         } = event
         {
-            toggle_popover(tray.app_handle(), rect);
+            toggle_dashboard(tray.app_handle());
         }
     });
 
@@ -279,7 +322,33 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         status_item,
         toggle_item,
         battery_item,
+        visual: Mutex::new(TrayVisual {
+            template: true,
+            ..Default::default()
+        }),
     });
+
+    // Steam animation: ~10 fps while the engine is active, idle otherwise.
+    let anim_handle = app.clone();
+    tauri::async_runtime::spawn(async move {
+        let mut phase = 0.0_f64;
+        let mut ticker = tokio::time::interval(std::time::Duration::from_millis(90));
+        loop {
+            ticker.tick().await;
+            let Some(handles) = anim_handle.try_state::<TrayHandles>() else {
+                continue;
+            };
+            let visual = handles.visual.lock().unwrap().clone();
+            if !visual.animate {
+                continue; // static frame already set by sync()
+            }
+            phase = (phase + 0.045).fract();
+            let icon = cup_icon_phase(visual.tint, visual.steam, visual.ring, phase);
+            let _ = handles.tray.set_icon(Some(icon));
+            let _ = handles.tray.set_icon_as_template(visual.template);
+        }
+    });
+
     Ok(())
 }
 
@@ -291,42 +360,21 @@ pub fn set_battery_line(app: &AppHandle, text: &str) {
     }
 }
 
-/// Show the quick popover anchored under the tray icon, or hide it if
-/// already visible. macOS only: popover placement next to a tray icon is
-/// not reliable on Linux (spec P3), where the native menu is primary.
+/// Left-click on the tray: show and focus the dashboard (or hide it if it's
+/// already the frontmost window).
 #[cfg(target_os = "macos")]
-fn toggle_popover(app: &AppHandle, rect: tauri::Rect) {
-    let Some(popover) = app.get_webview_window("popover") else {
+fn toggle_dashboard(app: &AppHandle) {
+    let Some(window) = app.get_webview_window("main") else {
         return;
     };
-    if popover.is_visible().unwrap_or(false) {
-        let _ = popover.hide();
-        return;
+    let visible = window.is_visible().unwrap_or(false);
+    let focused = window.is_focused().unwrap_or(false);
+    if visible && focused {
+        let _ = window.hide();
+    } else {
+        let _ = window.show();
+        let _ = window.set_focus();
     }
-    let scale = popover.scale_factor().unwrap_or(2.0);
-    let (icon_x, icon_y, icon_w, icon_h) = physical_rect(&rect, scale);
-    let width = popover
-        .outer_size()
-        .map(|s| f64::from(s.width))
-        .unwrap_or(360.0 * scale);
-    let x = icon_x + icon_w / 2.0 - width / 2.0;
-    let y = icon_y + icon_h + 4.0 * scale;
-    let _ = popover.set_position(tauri::PhysicalPosition::new(x, y));
-    let _ = popover.show();
-    let _ = popover.set_focus();
-}
-
-#[cfg(target_os = "macos")]
-fn physical_rect(rect: &tauri::Rect, scale: f64) -> (f64, f64, f64, f64) {
-    let (x, y) = match rect.position {
-        tauri::Position::Physical(p) => (f64::from(p.x), f64::from(p.y)),
-        tauri::Position::Logical(p) => (p.x * scale, p.y * scale),
-    };
-    let (w, h) = match rect.size {
-        tauri::Size::Physical(s) => (f64::from(s.width), f64::from(s.height)),
-        tauri::Size::Logical(s) => (s.width * scale, s.height * scale),
-    };
-    (x, y, w, h)
 }
 
 /// Reflect engine state in the tray menu and tooltip.
@@ -385,15 +433,30 @@ pub fn sync(app: &AppHandle, status: &StatusSnapshot) {
     };
 
     // State-colored cup: template (auto light/dark) when off, emerald with
-    // steam while running, slate on suspend, red when degraded.
-    let (icon, template) = match status.state {
-        "active" => (cup_icon(Some(TINT_ACTIVE), true, ring), false),
-        "suspended" => (cup_icon(Some(TINT_SUSPENDED), false, ring), false),
-        "degraded" => (cup_icon(Some(TINT_DEGRADED), true, ring), false),
-        _ => (cup_icon(None, false, None), true),
+    // steam while running, slate on suspend, red when degraded. Steam only
+    // animates while active/degraded (a live episode).
+    let (tint, steam, template) = match status.state {
+        "active" => (Some(TINT_ACTIVE), true, false),
+        "suspended" => (Some(TINT_SUSPENDED), false, false),
+        "degraded" => (Some(TINT_DEGRADED), true, false),
+        _ => (None, false, true),
     };
-    let _ = handles.tray.set_icon(Some(icon));
-    let _ = handles.tray.set_icon_as_template(template);
+    let ring = if status.state == "off" { None } else { ring };
+    let animate = steam;
+
+    // Record the frame for the animation task, and paint one now so a
+    // non-animated state (off/suspended) updates immediately.
+    *handles.visual.lock().unwrap() = TrayVisual {
+        tint,
+        steam,
+        ring,
+        template,
+        animate,
+    };
+    if !animate {
+        let _ = handles.tray.set_icon(Some(cup_icon(tint, steam, ring)));
+        let _ = handles.tray.set_icon_as_template(template);
+    }
 }
 
 /// Compact text next to the tray icon (macOS menu bar only).

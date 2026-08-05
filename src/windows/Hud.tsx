@@ -44,7 +44,7 @@ export function Hud() {
         data-tauri-drag-region
         className={`h-2.5 w-2.5 shrink-0 rounded-full ${dot}`}
       />
-      <span className="mono text-lg" data-tauri-drag-region>
+      <span className="mono text-lg" data-testid="idle-value" data-tauri-drag-region>
         {on
           ? status?.remaining_secs != null
             ? formatSeconds(status.remaining_secs)

@@ -110,7 +110,7 @@ export function Dashboard() {
 
       {/* Content */}
       <main className="flex-1 overflow-y-auto p-6">
-        <div className="mx-auto max-w-4xl space-y-5">
+        <div key={section} className="rise-in mx-auto max-w-4xl space-y-5">
           <DegradationsCard degradations={status?.degradations ?? []} />
 
           {section === "presence" && (

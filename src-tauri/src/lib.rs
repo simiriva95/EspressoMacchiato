@@ -509,31 +509,7 @@ pub fn run() {
                 }
             });
 
-            // Quick panel anchored to the tray icon (macOS only; on Linux
-            // the native menu is the primary interface).
-            #[cfg(target_os = "macos")]
-            tauri::WebviewWindowBuilder::new(
-                app,
-                "popover",
-                tauri::WebviewUrl::default(),
-            )
-            .title("EspressoMacchiato")
-            .inner_size(360.0, 460.0)
-            .decorations(false)
-            .resizable(false)
-            .visible(false)
-            .always_on_top(true)
-            .skip_taskbar(true)
-            .transparent(true)
-            .effects(tauri::utils::config::WindowEffectsConfig {
-                effects: vec![tauri::utils::WindowEffect::HudWindow],
-                state: None,
-                radius: Some(16.0),
-                color: None,
-            })
-            .build()?;
-
-            // First run with something to configure: surface the window.
+            // First run with something to configure: surface the dashboard.
             let show_main = {
                 let state = app.state::<AppState>();
                 let s = state.settings.lock().unwrap();
@@ -549,17 +525,10 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            match event {
-                // Tray app: closing a window hides it, the engine keeps running.
-                tauri::WindowEvent::CloseRequested { api, .. } => {
-                    let _ = window.hide();
-                    api.prevent_close();
-                }
-                // The popover dismisses itself when it loses focus.
-                tauri::WindowEvent::Focused(false) if window.label() == "popover" => {
-                    let _ = window.hide();
-                }
-                _ => {}
+            // Tray app: closing a window hides it, the engine keeps running.
+            if let tauri::WindowEvent::CloseRequested { api, .. } = event {
+                let _ = window.hide();
+                api.prevent_close();
             }
         })
         .invoke_handler(tauri::generate_handler![
