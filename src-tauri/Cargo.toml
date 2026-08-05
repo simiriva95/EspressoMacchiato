@@ -32,8 +32,12 @@ chrono = "0.4.45"
 sysinfo = "0.39.6"
 
 [target.'cfg(target_os = "macos")'.dependencies]
+block2 = "0.6.2"
 core-foundation = "0.10"
 core-graphics = "0.24"
+objc2 = "0.6.4"
+objc2-event-kit = "0.3.2"
+objc2-foundation = "0.3.2"
 
 [target.'cfg(target_os = "linux")'.dependencies]
 zbus = "5"

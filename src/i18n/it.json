@@ -1,5 +1,7 @@
 {
-  "app": { "name": "EspressoMacchiato" },
+  "app": {
+    "name": "EspressoMacchiato"
+  },
   "state": {
     "off": "PRONTO",
     "active": "IN FUNZIONE",
@@ -30,7 +32,8 @@
     "hours_one": "{{count}} ora",
     "hours_other": "{{count}} ore",
     "untilTime": "Fino a un orario…",
-    "untilEndOfDay": "Fino a fine giornata ({{time}})"
+    "untilEndOfDay": "Fino a fine giornata ({{time}})",
+    "untilMeeting": "Fino a fine riunione ({{time}})"
   },
   "idle": {
     "title": "Contatore di inattività",
@@ -102,8 +105,8 @@
     "notAvailable": "non disponibile",
     "onAc": "collegato alla corrente",
     "onBattery": "a batteria",
-    "percentHistory": "Andamento carica (ultime 2 ore)",
-    "wattsHistory": "Potenza (ultime 2 ore)",
+    "percentHistory": "Andamento carica",
+    "wattsHistory": "Potenza",
     "health": "Salute batteria",
     "cycles": "Cicli",
     "temperature": "Temperatura",
@@ -115,7 +118,10 @@
     "cpu": "CPU",
     "memory": "Memoria",
     "uptime": "Acceso da",
-    "topProcesses": "Processi più pesanti"
+    "topProcesses": "Processi più pesanti",
+    "cpuHistory": "CPU",
+    "tempHistory": "Temperatura batteria",
+    "window": "Storico"
   },
   "alerts": {
     "title": "Avvisi",

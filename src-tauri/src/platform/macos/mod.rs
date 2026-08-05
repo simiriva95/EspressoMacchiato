@@ -1,4 +1,5 @@
 pub mod activity;
+pub mod calendar;
 pub mod conditions;
 pub mod ffi;
 pub mod idle;

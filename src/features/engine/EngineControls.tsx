@@ -1,7 +1,7 @@
 // Status chip + main power switch + duration. The keep-awake control is
 // one row among the app's panels now, not a shouting headline.
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Toggle } from "../../components/Toggle";
 import { toDurationSecs, type DurationChoice } from "../../lib/duration";
@@ -34,6 +34,19 @@ export function EngineControls({
     kind: "indefinite",
   });
   const [untilTime, setUntilTime] = useState("17:00");
+  // "Until end of meeting": looked up lazily when the dropdown is opened,
+  // so the system Calendar permission dialog never fires in the background.
+  const [meetingEnd, setMeetingEnd] = useState<number | null>(null);
+  const meetingChecked = useRef(false);
+
+  const lookUpMeeting = () => {
+    if (meetingChecked.current) return;
+    meetingChecked.current = true;
+    ipc
+      .getNextMeetingEnd()
+      .then(setMeetingEnd)
+      .catch(() => setMeetingEnd(null)); // denied/unavailable → option hidden
+  };
 
   const on = status !== null && status.state !== "off";
   const endOfDay = settings?.end_of_day ?? "18:00";
@@ -87,14 +100,17 @@ export function EngineControls({
           <select
             id="duration"
             className="min-h-8 flex-1 rounded-full border border-line bg-surface-2 px-3 py-1"
+            onFocus={lookUpMeeting}
             value={
               duration.kind === "minutes"
                 ? String(duration.minutes)
-                : duration.kind === "until"
-                  ? untilTime === endOfDay
-                    ? "end_of_day"
-                    : "until"
-                  : "indefinite"
+                : duration.kind === "epoch"
+                  ? "meeting"
+                  : duration.kind === "until"
+                    ? untilTime === endOfDay
+                      ? "end_of_day"
+                      : "until"
+                    : "indefinite"
             }
             onChange={(e) => {
               const v = e.target.value;
@@ -104,6 +120,8 @@ export function EngineControls({
               else if (v === "end_of_day") {
                 setUntilTime(endOfDay);
                 setDuration({ kind: "until", time: endOfDay });
+              } else if (v === "meeting" && meetingEnd !== null) {
+                setDuration({ kind: "epoch", endMs: meetingEnd * 1000 });
               } else setDuration({ kind: "minutes", minutes: Number(v) });
             }}
           >
@@ -117,6 +135,16 @@ export function EngineControls({
             <option value="end_of_day">
               {t("engine.untilEndOfDay", { time: endOfDay })}
             </option>
+            {meetingEnd !== null && (
+              <option value="meeting">
+                {t("engine.untilMeeting", {
+                  time: new Date(meetingEnd * 1000).toLocaleTimeString([], {
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  }),
+                })}
+              </option>
+            )}
           </select>
           {duration.kind === "until" && untilTime !== endOfDay && (
             <input

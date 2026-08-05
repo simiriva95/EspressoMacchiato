@@ -45,7 +45,7 @@ pub struct PowerHub {
     pub history: Mutex<VecDeque<PowerSample>>,
 }
 
-const HISTORY_CAPACITY: usize = 720; // 2 h at one sample every 10 s
+const HISTORY_CAPACITY: usize = 2880; // 8 h at one sample every 10 s (RAM only)
 const SAMPLE_EVERY: Duration = Duration::from_secs(10);
 
 /// Backend-side language: settings override, else the LANG env var.
@@ -64,17 +64,23 @@ fn backend_language(settings_language: &str) -> String {
 }
 
 /// "38m · 85%" next to the tray icon, per the configured metrics (max two).
+/// Dynamic by design: countdown only exists while a timed activation runs,
+/// battery only speaks up below 20% — the menu bar stays quiet otherwise.
 #[cfg(target_os = "macos")]
 fn compose_menu_text(
     metrics: &[String],
     snapshot: &platform::PowerSnapshot,
     remaining_secs: Option<u64>,
 ) -> Option<String> {
+    const BATTERY_ATTENTION_PERCENT: f32 = 20.0;
     let parts: Vec<String> = metrics
         .iter()
         .filter_map(|metric| match metric.as_str() {
             "countdown" => remaining_secs.map(|s| format!("{}m", s.div_ceil(60))),
-            "battery" => snapshot.percent.map(|p| format!("{}%", p.round() as i64)),
+            "battery" => snapshot
+                .percent
+                .filter(|p| *p <= BATTERY_ATTENTION_PERCENT && !snapshot.on_ac)
+                .map(|p| format!("{}%", p.round() as i64)),
             "watts" => snapshot.watts.map(|w| format!("{w:.0}W")),
             _ => None,
         })
@@ -268,6 +274,18 @@ pub fn run() {
                     *hub.latest.lock().unwrap() = Some(snapshot.clone());
                     let _ = sampler_handle.emit("power://sample", &sample);
 
+                    // Battery line in the tray menu (Linux parity for the
+                    // popover's battery strip; harmless everywhere).
+                    let battery_line = match (snapshot.percent, snapshot.watts) {
+                        (Some(p), Some(w)) => {
+                            format!("{}% · {w:.1} W", p.round() as i64)
+                        }
+                        (Some(p), None) => format!("{}%", p.round() as i64),
+                        (None, Some(w)) => format!("AC · {w:.1} W"),
+                        (None, None) => "—".to_string(),
+                    };
+                    tray::set_battery_line(&sampler_handle, &battery_line);
+
                     let (alerts_cfg, lang, metrics) = {
                         let s = state.settings.lock().unwrap();
                         (
@@ -372,6 +390,7 @@ pub fn run() {
             commands::get_power,
             commands::get_power_history,
             commands::request_permission,
+            commands::get_next_meeting_end,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

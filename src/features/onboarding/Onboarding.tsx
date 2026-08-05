@@ -1,9 +1,10 @@
 // Three-step first-run wizard, shown only when something is missing.
 // Step 2 is a LIVE checklist: it re-polls the real permission state, no
-// static text pretending things work.
+// static text pretending things work. v2: glass card, step dots, switches.
 
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Toggle } from "../../components/Toggle";
 import { ipc, type Degradation, type Settings } from "../../lib/ipc";
 
 export function Onboarding({
@@ -38,12 +39,23 @@ export function Onboarding({
       role="dialog"
       aria-modal="true"
       aria-label={t("onboarding.welcomeTitle")}
-      className="fixed inset-0 z-10 flex items-center justify-center bg-bg/95 p-4"
+      className="fixed inset-0 z-10 flex items-center justify-center bg-bg/90 p-4 backdrop-blur-sm"
     >
-      <div className="w-full max-w-sm card p-5">
+      <div className="card w-full max-w-sm p-5">
+        <div className="mb-4 flex justify-center gap-1.5" aria-hidden="true">
+          {[0, 1, 2].map((i) => (
+            <span
+              key={i}
+              className={`h-1.5 rounded-full transition-all ${
+                i === step ? "w-6 bg-accent" : "w-1.5 bg-line"
+              }`}
+            />
+          ))}
+        </div>
+
         {step === 0 && (
           <div className="space-y-3">
-            <h2 className="display text-xl text-accent">
+            <h2 className="text-lg font-semibold text-accent">
               {t("onboarding.welcomeTitle")}
             </h2>
             <p className="text-sm">{t("onboarding.welcomeBody1")}</p>
@@ -58,16 +70,22 @@ export function Onboarding({
               {t("onboarding.permissionsTitle")}
             </h2>
             {degradations.length === 0 ? (
-              <p className="text-sm text-ok" role="status">
+              <p
+                className="rounded-xl border border-line bg-surface-2 p-3 text-sm text-ok"
+                role="status"
+              >
                 {t("onboarding.allGood")}
               </p>
             ) : (
               <div className="space-y-2 text-sm" role="status">
                 <p>{t("onboarding.missing")}</p>
-                <ul className="list-disc space-y-2 pl-4">
+                <ul className="space-y-2">
                   {degradations.map((d, i) => (
-                    <li key={i}>
-                      {d.detail}
+                    <li
+                      key={i}
+                      className="rounded-xl border border-line bg-surface-2 p-3"
+                    >
+                      <span className="text-alert">{d.detail}</span>
                       {d.help && (
                         <div className="mono mt-1 text-xs text-ink-2">
                           {d.help}
@@ -127,55 +145,63 @@ export function Onboarding({
         )}
 
         {step === 2 && (
-          <div className="space-y-3">
-            <h2 className="text-lg font-semibold">
+          <div className="space-y-1">
+            <h2 className="mb-2 text-lg font-semibold">
               {t("onboarding.prefsTitle")}
             </h2>
-            <label className="flex min-h-8 items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={draft.autostart}
-                onChange={(e) =>
-                  setDraft({ ...draft, autostart: e.target.checked })
-                }
-              />
-              {t("settings.autostart")}
-            </label>
-            <label className="block text-sm">
-              {t("settings.interval")}:{" "}
-              <span className="mono">{draft.interval_secs}s</span>
-              <input
-                type="range"
-                min={10}
-                max={240}
-                step={5}
-                value={draft.interval_secs}
-                onChange={(e) =>
-                  setDraft({ ...draft, interval_secs: Number(e.target.value) })
-                }
-                className="w-full"
-              />
-            </label>
-            <label className="flex min-h-8 items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={draft.schedule.enabled}
-                onChange={(e) =>
-                  setDraft({
-                    ...draft,
-                    schedule: { ...draft.schedule, enabled: e.target.checked },
-                  })
-                }
-              />
-              {t("settings.scheduleEnabled")}
-            </label>
+            <div className="hairline-rows">
+              <div className="flex min-h-8 items-center justify-between gap-3 py-2.5 text-sm">
+                <span>{t("settings.autostart")}</span>
+                <Toggle
+                  checked={draft.autostart}
+                  onChange={(v) => setDraft({ ...draft, autostart: v })}
+                  label={t("settings.autostart")}
+                />
+              </div>
+              <div className="py-2.5 text-sm">
+                <div className="flex items-center justify-between">
+                  <span>{t("settings.interval")}</span>
+                  <span className="mono text-ink-2">
+                    {draft.interval_secs}s
+                  </span>
+                </div>
+                <input
+                  type="range"
+                  aria-label={t("settings.interval")}
+                  min={10}
+                  max={240}
+                  step={5}
+                  value={draft.interval_secs}
+                  onChange={(e) =>
+                    setDraft({
+                      ...draft,
+                      interval_secs: Number(e.target.value),
+                    })
+                  }
+                  className="mt-1 w-full"
+                />
+              </div>
+              <div className="flex min-h-8 items-center justify-between gap-3 py-2.5 text-sm">
+                <span>{t("settings.scheduleEnabled")}</span>
+                <Toggle
+                  checked={draft.schedule.enabled}
+                  onChange={(v) =>
+                    setDraft({
+                      ...draft,
+                      schedule: { ...draft.schedule, enabled: v },
+                    })
+                  }
+                  label={t("settings.scheduleEnabled")}
+                />
+              </div>
+            </div>
           </div>
         )}
 
         <div className="mt-5 flex items-center justify-between">
           <button
             type="button"
-            className="min-h-8 px-2 py-1 text-sm text-ink-2"
+            className="min-h-8 px-2 py-1 text-sm text-ink-2 hover:text-ink"
             onClick={finish}
           >
             {t("onboarding.skip")}
@@ -190,23 +216,13 @@ export function Onboarding({
                 {t("onboarding.back")}
               </button>
             )}
-            {step < 2 ? (
-              <button
-                type="button"
-                className="min-h-8 rounded-full bg-accent px-4 py-1 text-sm font-semibold text-on-accent"
-                onClick={() => setStep(step + 1)}
-              >
-                {t("onboarding.next")}
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="min-h-8 rounded-full bg-accent px-4 py-1 text-sm font-semibold text-on-accent"
-                onClick={finish}
-              >
-                {t("onboarding.done")}
-              </button>
-            )}
+            <button
+              type="button"
+              className="min-h-8 rounded-full bg-accent px-4 py-1 text-sm font-semibold text-on-accent"
+              onClick={() => (step < 2 ? setStep(step + 1) : finish())}
+            >
+              {step < 2 ? t("onboarding.next") : t("onboarding.done")}
+            </button>
           </div>
         </div>
       </div>

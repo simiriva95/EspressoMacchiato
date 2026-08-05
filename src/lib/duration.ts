@@ -4,7 +4,8 @@
 export type DurationChoice =
   | { kind: "indefinite" }
   | { kind: "minutes"; minutes: number }
-  | { kind: "until"; time: string }; // "HH:MM"
+  | { kind: "until"; time: string } // "HH:MM"
+  | { kind: "epoch"; endMs: number }; // absolute end (e.g. meeting end)
 
 /** Seconds from `now` until HH:MM today, or tomorrow if already past. */
 export function secondsUntil(hhmm: string, now: Date = new Date()): number | null {
@@ -31,5 +32,7 @@ export function toDurationSecs(
       return choice.minutes * 60;
     case "until":
       return secondsUntil(choice.time, now) ?? undefined;
+    case "epoch":
+      return Math.max(60, Math.round((choice.endMs - now.getTime()) / 1000));
   }
 }

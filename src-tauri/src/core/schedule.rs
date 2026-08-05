@@ -45,6 +45,20 @@ pub fn is_open(windows: &[ScheduleWindow], now: NaiveDateTime) -> bool {
     })
 }
 
+/// Seconds from `now` until the given "HH:MM" today, or tomorrow if it has
+/// already passed. Used by the "until end of day" tray shortcut.
+pub fn seconds_until(target: NaiveTime, now: NaiveDateTime) -> u64 {
+    use chrono::Timelike;
+    let now_secs = i64::from(now.time().num_seconds_from_midnight());
+    let target_secs = i64::from(target.num_seconds_from_midnight());
+    let delta = target_secs - now_secs;
+    if delta > 0 {
+        delta as u64
+    } else {
+        (delta + 86_400) as u64
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -118,5 +132,13 @@ mod tests {
     fn invalid_times_disable_the_window_without_panicking() {
         let w = [win(&[1], "9am", "18:00")];
         assert!(!is_open(&w, at(2026, 8, 4, 10, 0)));
+    }
+
+    #[test]
+    fn seconds_until_today_and_tomorrow() {
+        let t = parse_hhmm("18:00").unwrap();
+        assert_eq!(seconds_until(t, at(2026, 8, 4, 17, 0)), 3600);
+        // Already past → tomorrow.
+        assert_eq!(seconds_until(t, at(2026, 8, 4, 18, 30)), 86_400 - 1800);
     }
 }

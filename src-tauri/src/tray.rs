@@ -1,7 +1,7 @@
 //! Tray icon and native menu. Primary interface on Linux, quick access on
 //! macOS. State-specific icons land in M3; for now the menu carries state.
 
-use tauri::menu::{Menu, MenuItem, PredefinedMenuItem};
+use tauri::menu::{Menu, MenuItem, PredefinedMenuItem, Submenu};
 use tauri::tray::TrayIconBuilder;
 #[cfg(target_os = "macos")]
 use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
@@ -15,6 +15,73 @@ pub struct TrayHandles {
     tray: tauri::tray::TrayIcon,
     status_item: MenuItem<tauri::Wry>,
     toggle_item: MenuItem<tauri::Wry>,
+    battery_item: MenuItem<tauri::Wry>,
+}
+
+/// Tray menu copy in the app language (the native menu is the primary
+/// interface on Linux, so it deserves the same localization as the UI).
+struct Labels {
+    toggle_on: &'static str,
+    activate_for: &'static str,
+    m15: &'static str,
+    h1: &'static str,
+    h2: &'static str,
+    h4: &'static str,
+    end_of_day: &'static str,
+    open: &'static str,
+    quit: &'static str,
+}
+
+fn labels(it: bool) -> Labels {
+    if it {
+        Labels {
+            toggle_on: "Attiva",
+            activate_for: "Attiva per…",
+            m15: "15 minuti",
+            h1: "1 ora",
+            h2: "2 ore",
+            h4: "4 ore",
+            end_of_day: "Fino a fine giornata",
+            open: "Apri EspressoMacchiato",
+            quit: "Esci",
+        }
+    } else {
+        Labels {
+            toggle_on: "Activate",
+            activate_for: "Activate for…",
+            m15: "15 minutes",
+            h1: "1 hour",
+            h2: "2 hours",
+            h4: "4 hours",
+            end_of_day: "Until end of day",
+            open: "Open EspressoMacchiato",
+            quit: "Quit",
+        }
+    }
+}
+
+/// Timed activation from the tray, no window needed.
+fn activate_for(app: &AppHandle, duration_secs: Option<u64>) {
+    app.state::<AppState>().engine.set_active(
+        true,
+        crate::core::state::ActivationReason::Manual,
+        duration_secs,
+    );
+}
+
+fn seconds_until_end_of_day(app: &AppHandle) -> Option<u64> {
+    let end_of_day = app
+        .state::<AppState>()
+        .settings
+        .lock()
+        .unwrap()
+        .end_of_day
+        .clone();
+    let target = crate::core::schedule::parse_hhmm(&end_of_day)?;
+    Some(crate::core::schedule::seconds_until(
+        target,
+        chrono::Local::now().naive_local(),
+    ))
 }
 
 /// Espresso cup glyph drawn at runtime (44×44 RGBA): no icon assets, and
@@ -73,16 +140,39 @@ const TINT_SUSPENDED: [u8; 3] = [148, 163, 184]; // slate
 const TINT_DEGRADED: [u8; 3] = [248, 113, 113]; // soft red
 
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
+    let it = {
+        let state = app.state::<AppState>();
+        let lang = state.settings.lock().unwrap().language.clone();
+        crate::backend_language(&lang) == "it"
+    };
+    let l = labels(it);
+
     let status_item = MenuItem::with_id(app, "status", "Off", false, None::<&str>)?;
-    let toggle_item = MenuItem::with_id(app, "toggle", "Activate", true, None::<&str>)?;
-    let open_item = MenuItem::with_id(app, "open", "Open EspressoMacchiato", true, None::<&str>)?;
-    let quit_item = MenuItem::with_id(app, "quit", "Quit", true, None::<&str>)?;
+    let battery_item = MenuItem::with_id(app, "battery", "…", false, None::<&str>)?;
+    let toggle_item = MenuItem::with_id(app, "toggle", l.toggle_on, true, None::<&str>)?;
+    let duration_menu = Submenu::with_id_and_items(
+        app,
+        "activate_for",
+        l.activate_for,
+        true,
+        &[
+            &MenuItem::with_id(app, "act_15", l.m15, true, None::<&str>)?,
+            &MenuItem::with_id(app, "act_60", l.h1, true, None::<&str>)?,
+            &MenuItem::with_id(app, "act_120", l.h2, true, None::<&str>)?,
+            &MenuItem::with_id(app, "act_240", l.h4, true, None::<&str>)?,
+            &MenuItem::with_id(app, "act_eod", l.end_of_day, true, None::<&str>)?,
+        ],
+    )?;
+    let open_item = MenuItem::with_id(app, "open", l.open, true, None::<&str>)?;
+    let quit_item = MenuItem::with_id(app, "quit", l.quit, true, None::<&str>)?;
     let menu = Menu::with_items(
         app,
         &[
             &status_item,
+            &battery_item,
             &PredefinedMenuItem::separator(app)?,
             &toggle_item,
+            &duration_menu,
             &open_item,
             &PredefinedMenuItem::separator(app)?,
             &quit_item,
@@ -99,6 +189,11 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         .show_menu_on_left_click(cfg!(not(target_os = "macos")))
         .on_menu_event(|app, event| match event.id.as_ref() {
             "toggle" => app.state::<AppState>().engine.toggle(),
+            "act_15" => activate_for(app, Some(15 * 60)),
+            "act_60" => activate_for(app, Some(3600)),
+            "act_120" => activate_for(app, Some(2 * 3600)),
+            "act_240" => activate_for(app, Some(4 * 3600)),
+            "act_eod" => activate_for(app, seconds_until_end_of_day(app)),
             "open" => {
                 if let Some(window) = app.get_webview_window("main") {
                     let _ = window.show();
@@ -134,8 +229,17 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         tray,
         status_item,
         toggle_item,
+        battery_item,
     });
     Ok(())
+}
+
+/// Battery line inside the tray menu — Linux parity for the popover's
+/// battery strip (custom popovers next to the tray are unreliable there).
+pub fn set_battery_line(app: &AppHandle, text: &str) {
+    if let Some(handles) = app.try_state::<TrayHandles>() {
+        let _ = handles.battery_item.set_text(text);
+    }
 }
 
 /// Show the quick popover anchored under the tray icon, or hide it if

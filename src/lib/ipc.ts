@@ -239,6 +239,8 @@ const browserDemo: typeof tauriIpc = {
   getSettings: () => Promise.resolve(demoSettings),
   updateSettings: (s) => Promise.resolve(s),
   onEngineEvent: () => Promise.resolve(() => {}),
+  getNextMeetingEnd: () =>
+    Promise.resolve(Math.round(Date.now() / 1000) + 45 * 60),
   getPower: () => Promise.resolve(demoPower),
   getPowerHistory: () => Promise.resolve(demoHistory),
   onPowerSample: () => Promise.resolve(() => {}),
@@ -260,6 +262,9 @@ const tauriIpc = {
     invoke<Settings>("update_settings", { settings }),
   onEngineEvent: (handler: (e: EngineEvent) => void): Promise<UnlistenFn> =>
     listen<EngineEvent>("engine://event", (event) => handler(event.payload)),
+  /** Unix seconds when the current/imminent meeting ends (macOS EventKit).
+   * Rejects when the calendar permission is denied or unavailable. */
+  getNextMeetingEnd: () => invoke<number | null>("get_next_meeting_end"),
   getPower: () => invoke<PowerSnapshot | null>("get_power"),
   getPowerHistory: () => invoke<PowerSample[]>("get_power_history"),
   onPowerSample: (handler: (s: PowerSample) => void): Promise<UnlistenFn> =>

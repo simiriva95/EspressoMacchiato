@@ -63,6 +63,23 @@ pub fn request_permission() -> bool {
     }
 }
 
+/// Unix seconds when the current (or imminent) meeting ends, for the
+/// "until end of meeting" duration. Ok(None) = calendar readable but no
+/// relevant event; Err = permission denied/unavailable. Sync on purpose:
+/// it may block on the system permission dialog, and Tauri runs sync
+/// commands on a worker thread.
+#[tauri::command]
+pub fn get_next_meeting_end() -> Result<Option<i64>, String> {
+    #[cfg(target_os = "macos")]
+    {
+        crate::platform::macos::calendar::next_meeting_end()
+    }
+    #[cfg(not(target_os = "macos"))]
+    {
+        Err("not available on this platform".into())
+    }
+}
+
 /// Deep link to the OS panel where the missing permission is granted.
 #[tauri::command]
 pub fn open_permission_settings(app: tauri::AppHandle) -> Result<(), String> {
