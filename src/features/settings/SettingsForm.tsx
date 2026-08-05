@@ -1,86 +1,19 @@
-// The settings window: grouped glass cards, switch rows, segmented
-// controls. Full controls + idle monitor + energy panel + first-run wizard.
+// All settings grouped into glass cards with switch rows and segmented
+// controls. Rendered inside the dashboard's Settings section.
 
-import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { DegradationsCard } from "../components/DegradationsCard";
-import { Row } from "../components/Row";
-import { Segmented } from "../components/Segmented";
-import { StateAnnouncer } from "../components/StateAnnouncer";
-import { Toggle } from "../components/Toggle";
-import { EngineControls } from "../features/engine/EngineControls";
-import { IdleMonitor } from "../features/idle-monitor/IdleMonitor";
-import { Onboarding } from "../features/onboarding/Onboarding";
-import { PowerPanel } from "../features/power/PowerPanel";
+import { Row } from "../../components/Row";
+import { Segmented } from "../../components/Segmented";
+import { Toggle } from "../../components/Toggle";
 import {
-  ipc,
   type ActivityStrategy,
   type ScheduleWindow,
   type Settings,
-  type StatsReport,
   type StatusSnapshot,
-} from "../lib/ipc";
-import { ACCENT_SWATCHES } from "../lib/theme";
-import { formatSeconds } from "../lib/format";
-import { useEngine } from "../lib/useEngine";
+} from "../../lib/ipc";
+import { ACCENT_SWATCHES } from "../../lib/theme";
 
-export function SettingsWindow() {
-  const { t } = useTranslation();
-  const { status, settings, save, saveError, pokeSignal } = useEngine();
-  const [showOnboarding, setShowOnboarding] = useState(false);
-  const onboardingChecked = useRef(false);
-
-  // First run: open the wizard only if a permission is actually missing.
-  useEffect(() => {
-    if (!settings || onboardingChecked.current) return;
-    onboardingChecked.current = true;
-    if (!settings.onboarding_done) {
-      ipc.getPermissionStatus().then((degradations) => {
-        if (degradations.length > 0) setShowOnboarding(true);
-        else save({ ...settings, onboarding_done: true });
-      });
-    }
-  }, [settings, save]);
-
-  return (
-    <main className="mx-auto max-w-md space-y-4 p-4">
-      <StateAnnouncer status={status} />
-      <header>
-        <h1 className="text-sm font-semibold uppercase tracking-wide text-ink-2">
-          {t("app.name")}
-        </h1>
-      </header>
-
-      <div className="card p-4">
-        <EngineControls status={status} settings={settings} />
-      </div>
-      <ReportCard />
-      <DegradationsCard degradations={status?.degradations ?? []} />
-      <IdleMonitor status={status} pokeSignal={pokeSignal} />
-      <PowerPanel />
-
-      {settings && (
-        <SettingsForm
-          settings={settings}
-          status={status}
-          onChange={save}
-          saveError={saveError}
-          onReopenOnboarding={() => setShowOnboarding(true)}
-        />
-      )}
-
-      {showOnboarding && settings && (
-        <Onboarding
-          settings={settings}
-          onSave={save}
-          onClose={() => setShowOnboarding(false)}
-        />
-      )}
-    </main>
-  );
-}
-
-function Card({
+export function Card({
   title,
   children,
 }: {
@@ -88,8 +21,8 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <section aria-label={title} className="card p-4">
-      <h2 className="mb-2 text-xs font-semibold uppercase tracking-wide text-ink-2">
+    <section aria-label={title} className="card p-5">
+      <h2 className="mb-1 text-xs font-semibold uppercase tracking-widest text-ink-2">
         {title}
       </h2>
       <div className="hairline-rows">{children}</div>
@@ -121,14 +54,14 @@ function NumberField({
         max={max}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="min-h-8 w-16 rounded-lg border border-line bg-bg p-1 text-ink"
+        className="min-h-8 w-16 rounded-lg border border-line bg-surface-2 p-1 text-ink"
       />
       {suffix}
     </span>
   );
 }
 
-function SettingsForm({
+export function SettingsForm({
   settings,
   status,
   onChange,
@@ -149,10 +82,10 @@ function SettingsForm({
     set({ alerts: { ...settings.alerts, ...patch } });
 
   return (
-    <div className="space-y-4">
+    <div className="grid gap-5 lg:grid-cols-2">
       {saveError && (
         <p
-          className="card border-alert p-3 text-xs text-alert"
+          className="card border-alert p-3 text-xs text-alert lg:col-span-2"
           role="alert"
         >
           {t("common.saveError", { error: saveError })}
@@ -188,7 +121,7 @@ function SettingsForm({
             onChange={(e) =>
               set({ strategy: e.target.value as ActivityStrategy })
             }
-            className="min-h-8 w-full rounded-lg border border-line bg-bg p-1.5"
+            className="min-h-8 w-full rounded-lg border border-line bg-surface-2 p-1.5"
           >
             {(status?.available_strategies ?? [settings.strategy]).map((s) => (
               <option key={s} value={s}>
@@ -207,14 +140,22 @@ function SettingsForm({
             label={t("settings.pauseWhenInputRecent")}
           />
         </Row>
+        <Row
+          label={t("settings.autoActivateOnCall")}
+          description={t("settings.autoActivateOnCallHelp")}
+        >
+          <Toggle
+            checked={settings.conditions.auto_activate_on_call}
+            onChange={(v) => setConditions({ auto_activate_on_call: v })}
+            label={t("settings.autoActivateOnCall")}
+          />
+        </Row>
         <Row label={t("settings.onlyOnAc")}>
           {settings.conditions.only_on_ac && (
             <NumberField
               value={settings.conditions.min_battery_percent ?? 100}
               onChange={(v) =>
-                setConditions({
-                  min_battery_percent: v >= 100 ? null : v,
-                })
+                setConditions({ min_battery_percent: v >= 100 ? null : v })
               }
               min={1}
               max={100}
@@ -243,7 +184,7 @@ function SettingsForm({
                       .map((s) => s.trim()),
                   })
                 }
-                className="mt-1 min-h-8 w-full rounded-lg border border-line bg-bg p-1.5 text-sm text-ink"
+                className="mt-1 min-h-8 w-full rounded-lg border border-line bg-surface-2 p-1.5 text-sm text-ink"
               />
             ) : undefined
           }
@@ -259,16 +200,6 @@ function SettingsForm({
             checked={settings.conditions.pause_when_screen_locked}
             onChange={(v) => setConditions({ pause_when_screen_locked: v })}
             label={t("settings.pauseWhenScreenLocked")}
-          />
-        </Row>
-        <Row
-          label={t("settings.autoActivateOnCall")}
-          description={t("settings.autoActivateOnCallHelp")}
-        >
-          <Toggle
-            checked={settings.conditions.auto_activate_on_call}
-            onChange={(v) => setConditions({ auto_activate_on_call: v })}
-            label={t("settings.autoActivateOnCall")}
           />
         </Row>
       </Card>
@@ -372,7 +303,7 @@ function SettingsForm({
             aria-label={t("settings.hotkey")}
             value={settings.hotkey}
             onChange={(e) => set({ hotkey: e.target.value })}
-            className="mono min-h-8 w-full rounded-lg border border-line bg-bg p-1.5"
+            className="mono min-h-8 w-full rounded-lg border border-line bg-surface-2 p-1.5"
             placeholder={t("settings.hotkeyPlaceholder")}
           />
         </Row>
@@ -382,12 +313,24 @@ function SettingsForm({
             aria-label={t("settings.endOfDay")}
             value={settings.end_of_day}
             onChange={(e) => set({ end_of_day: e.target.value })}
-            className="min-h-8 rounded-lg border border-line bg-bg p-1"
+            className="min-h-8 rounded-lg border border-line bg-surface-2 p-1"
           />
         </Row>
       </Card>
 
       <Card title={t("settings.menuBarText")}>
+        <Row label={t("settings.menuBarRing")}>
+          <Segmented
+            value={settings.menu_bar_ring}
+            onChange={(v) => set({ menu_bar_ring: v })}
+            label={t("settings.menuBarRing")}
+            options={[
+              { value: "off", label: t("settings.ringOff") },
+              { value: "timer", label: t("settings.ringTimer") },
+              { value: "battery", label: t("settings.ringBattery") },
+            ]}
+          />
+        </Row>
         <Row label={t("settings.menuBarTextHelp")} stacked>
           <div className="space-y-2">
             {(["countdown", "battery", "watts"] as const).map((metric) => {
@@ -402,7 +345,9 @@ function SettingsForm({
                   </span>
                   <Toggle
                     checked={selected}
-                    disabled={!selected && settings.menu_bar_metrics.length >= 2}
+                    disabled={
+                      !selected && settings.menu_bar_metrics.length >= 2
+                    }
                     onChange={(v) =>
                       set({
                         menu_bar_metrics: v
@@ -422,20 +367,12 @@ function SettingsForm({
       </Card>
 
       <Card title={t("settings.appearance")}>
-        <Row label={t("settings.menuBarRing")}>
-          <Segmented
-            value={settings.menu_bar_ring}
-            onChange={(v) => set({ menu_bar_ring: v })}
-            label={t("settings.menuBarRing")}
-            options={[
-              { value: "off", label: t("settings.ringOff") },
-              { value: "timer", label: t("settings.ringTimer") },
-              { value: "battery", label: t("settings.ringBattery") },
-            ]}
-          />
-        </Row>
         <Row label={t("settings.accent")}>
-          <div className="flex gap-1.5" role="group" aria-label={t("settings.accent")}>
+          <div
+            className="flex gap-1.5"
+            role="group"
+            aria-label={t("settings.accent")}
+          >
             {ACCENT_SWATCHES.map((swatch) => (
               <button
                 key={swatch}
@@ -562,7 +499,7 @@ function ScheduleEditor({
                 value={w.start}
                 aria-label={t("settings.windowStart")}
                 onChange={(e) => setWindow(i, { start: e.target.value })}
-                className="min-h-8 rounded-lg border border-line bg-bg p-1"
+                className="min-h-8 rounded-lg border border-line bg-surface-2 p-1"
               />
               <span aria-hidden="true">→</span>
               <input
@@ -570,7 +507,7 @@ function ScheduleEditor({
                 value={w.end}
                 aria-label={t("settings.windowEnd")}
                 onChange={(e) => setWindow(i, { end: e.target.value })}
-                className="min-h-8 rounded-lg border border-line bg-bg p-1"
+                className="min-h-8 rounded-lg border border-line bg-surface-2 p-1"
               />
               <button
                 type="button"
@@ -607,39 +544,5 @@ function ScheduleEditor({
         </div>
       )}
     </>
-  );
-}
-
-function ReportCard() {
-  const { t } = useTranslation();
-  const [report, setReport] = useState<StatsReport | null>(null);
-
-  useEffect(() => {
-    ipc.getStats().then(setReport, () => setReport(null));
-  }, []);
-
-  if (!report) return null;
-  return (
-    <section aria-label={t("report.title")} className="card p-4">
-      <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-2">
-        {t("report.title")}
-      </h2>
-      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
-        <dt className="text-ink-2">{t("report.activeTime")}</dt>
-        <dd className="mono">{formatSeconds(report.week_active_secs)}</dd>
-        <dt className="text-ink-2">{t("report.pokes")}</dt>
-        <dd className="mono">{report.week_pokes}</dd>
-        <dt className="text-ink-2">{t("report.shots")}</dt>
-        <dd className="mono">☕ ×{report.shots_today}</dd>
-        {report.health_now != null && report.health_month_ago != null && (
-          <>
-            <dt className="text-ink-2">{t("report.healthTrend")}</dt>
-            <dd className="mono">
-              {report.health_month_ago.toFixed(1)}% → {report.health_now.toFixed(1)}%
-            </dd>
-          </>
-        )}
-      </dl>
-    </section>
   );
 }

@@ -5,8 +5,8 @@
 import { render } from "@testing-library/react";
 import axe from "axe-core";
 import { describe, expect, it } from "vitest";
+import { Dashboard } from "./windows/Dashboard";
 import { Popover } from "./windows/Popover";
-import { SettingsWindow } from "./windows/Settings";
 
 async function expectNoViolations(container: HTMLElement) {
   const results = await axe.run(container, {
@@ -19,8 +19,8 @@ async function expectNoViolations(container: HTMLElement) {
 }
 
 describe("accessibility (axe)", () => {
-  it("Settings window has no violations", async () => {
-    const { container, findByTestId } = render(<SettingsWindow />);
+  it("Dashboard has no violations", async () => {
+    const { container, findByTestId } = render(<Dashboard />);
     await findByTestId("idle-value"); // let async state settle
     await expectNoViolations(container);
   }, 15000);

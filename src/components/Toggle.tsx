@@ -1,5 +1,5 @@
-// iOS-style switch. Pure CSS transition (≤150ms), disabled under
-// prefers-reduced-motion by the global rule.
+// Refined switch: slim track, floating knob with depth, spring-ish easing.
+// Disabled/reduced-motion handled by the global reset.
 
 import { clsx } from "clsx";
 
@@ -24,16 +24,22 @@ export function Toggle({
       disabled={disabled}
       onClick={() => onChange(!checked)}
       className={clsx(
-        "relative h-7 w-12 shrink-0 rounded-full border transition-colors disabled:opacity-40",
-        checked ? "border-accent bg-accent" : "border-line bg-bg",
+        "relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-200 disabled:opacity-40",
+        checked
+          ? "bg-accent shadow-[inset_0_0_0_1px_rgba(0,0,0,0.06)]"
+          : "bg-line",
       )}
+      style={{ transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)" }}
     >
       <span
         aria-hidden="true"
         className={clsx(
-          "absolute left-0 top-0.5 h-[22px] w-[22px] rounded-full bg-white shadow transition-transform",
-          checked ? "translate-x-[24px]" : "translate-x-0.5",
+          "inline-block h-5 w-5 rounded-full bg-white shadow-[0_1px_3px_rgba(0,0,0,0.3)] transition-transform duration-200",
+          checked ? "translate-x-[22px]" : "translate-x-0.5",
         )}
+        style={{
+          transitionTimingFunction: "cubic-bezier(0.34, 1.56, 0.64, 1)",
+        }}
       />
     </button>
   );

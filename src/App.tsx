@@ -1,6 +1,6 @@
 import { Hud } from "./windows/Hud";
 import { Popover } from "./windows/Popover";
-import { SettingsWindow } from "./windows/Settings";
+import { Dashboard } from "./windows/Dashboard";
 
 function getWindowLabel(): string {
   // Browser dev preview: pick the window via ?window=popover.
@@ -28,7 +28,7 @@ function App() {
   const label = getWindowLabel();
   if (label === "popover") return <Popover />;
   if (label === "hud") return <Hud />;
-  return <SettingsWindow />;
+  return <Dashboard />;
 }
 
 export default App;

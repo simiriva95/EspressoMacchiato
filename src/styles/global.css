@@ -15,7 +15,7 @@
   --color-alert: var(--alert);
   --color-alert-fill: var(--alert-fill);
   --color-on-alert-fill: var(--on-alert-fill);
-  --font-display: "Archivo Black", system-ui, sans-serif;
+  --font-display: "Bricolage Grotesque", system-ui, sans-serif;
 }
 
 :root {
@@ -73,11 +73,11 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Display role: the state word only, one per screen. */
+/* Display role: headings and hero numbers. */
 .display {
-  font-family: "Archivo Black", system-ui, sans-serif;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
+  font-family: "Bricolage Grotesque", system-ui, sans-serif;
+  font-weight: 700;
+  letter-spacing: -0.01em;
 }
 
 /* Native controls pick up the accent. */

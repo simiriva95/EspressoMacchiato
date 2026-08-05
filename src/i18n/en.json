@@ -174,7 +174,7 @@
     "done": "Done"
   },
   "popover": {
-    "openSettings": "Open settings"
+    "openSettings": "Open dashboard"
   },
   "a11y": {
     "stateAnnouncement": "State: {{state}}",
@@ -191,5 +191,11 @@
     "pokes": "Pokes",
     "shots": "Espresso shots today",
     "healthTrend": "Battery health (1 month)"
+  },
+  "nav": {
+    "presence": "Presence",
+    "energy": "Energy",
+    "activity": "Activity",
+    "settings": "Settings"
   }
 }
