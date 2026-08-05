@@ -21,8 +21,10 @@ struct TrayVisual {
     steam: bool,
     ring: Option<f64>,
     template: bool,
-    /// Animate (redraw steam frames) only while the engine is active.
+    /// Animate (steam + coffee fill) only while the engine is active.
     animate: bool,
+    /// Poke interval in seconds, to turn idle time into a fill level.
+    interval_secs: u64,
 }
 
 pub struct TrayHandles {
@@ -104,15 +106,17 @@ fn seconds_until_end_of_day(app: &AppHandle) -> Option<u64> {
 /// the cup. `None` tint = solid black for the macOS template icon (the OS
 /// recolors it for light/dark menu bars).
 fn cup_icon(tint: Option<[u8; 3]>, steam: bool, ring: Option<f64>) -> tauri::image::Image<'static> {
-    cup_icon_phase(tint, steam, ring, 0.0)
+    cup_icon_phase(tint, steam, ring, None, 0.0)
 }
 
-/// `phase` in 0..1 drives the steam animation: two curls rise and fade on a
-/// loop. 0 = static frame (used everywhere except the animation task).
+/// `phase` in 0..1 drives the steam animation. `fill` in 0..1, when set,
+/// draws the cup as an outline with coffee rising from the bottom to that
+/// level — the menu-bar feedback: it fills with idle and empties on a poke.
 fn cup_icon_phase(
     tint: Option<[u8; 3]>,
     steam: bool,
     ring: Option<f64>,
+    fill: Option<f64>,
     phase: f64,
 ) -> tauri::image::Image<'static> {
     const S: usize = 44;
@@ -134,6 +138,9 @@ fn cup_icon_phase(
     // to leave room; otherwise it fills the canvas.
     let scale = if ring.is_some() { 0.82 } else { 1.0 };
     let sx0 = |x: f64| cx + (x - cx) / scale;
+    // Coffee surface line: fill 1 = near the rim (y≈14), fill 0 = near the
+    // bottom (y≈30). Carving above it leaves just the cup wall.
+    let coffee_surface = fill.map(|f| 30.0 - f.clamp(0.0, 1.0) * 16.0);
     let coverage = |px: f64, py: f64| -> f64 {
         let x = sx0(px);
         let y = cx + (py - cx) / scale;
@@ -144,6 +151,14 @@ fn cup_icon_phase(
         // Hollow the coffee surface so it looks like a cup, not a blob.
         let hollow = rounded_rect(x, y, cx - 1.0, 15.0, 8.5, 1.6, 1.4);
         d = d.max(-hollow);
+        // Coffee level: above the surface, carve the interior so only the
+        // ~2px wall remains; below it stays solid (the coffee).
+        if let Some(surface) = coffee_surface {
+            if y < surface {
+                let interior = rounded_rect(x, y, cx - 1.5, 23.5, 7.6, 8.5, 3.0);
+                d = d.max(-interior);
+            }
+        }
         // Handle.
         let handle = {
             let dd = ((x - (cx + 11.0)).powi(2) + (y - 22.0).powi(2)).sqrt();
@@ -328,22 +343,46 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         }),
     });
 
-    // Steam animation: ~10 fps while the engine is active, idle otherwise.
+    // Steam + coffee-fill animation: ~11 fps while active, idle otherwise.
+    // The cup fills with the OS idle time and empties on each poke — a big,
+    // rhythmic, always-legible feedback right in the menu bar.
     let anim_handle = app.clone();
     tauri::async_runtime::spawn(async move {
         let mut phase = 0.0_f64;
+        let mut fill = 0.0_f64;
+        let mut frame: u32 = 0;
+        let mut target_fill = 0.0_f64;
         let mut ticker = tokio::time::interval(std::time::Duration::from_millis(90));
         loop {
             ticker.tick().await;
+            frame = frame.wrapping_add(1);
             let Some(handles) = anim_handle.try_state::<TrayHandles>() else {
                 continue;
             };
             let visual = handles.visual.lock().unwrap().clone();
             if !visual.animate {
+                fill = 0.0;
                 continue; // static frame already set by sync()
             }
+            // Refresh the target fill ~every 900ms from real idle time.
+            if frame.is_multiple_of(10) {
+                if let Some(state) = anim_handle.try_state::<AppState>() {
+                    if let Ok(idle) = state.engine.idle_seconds().await {
+                        let iv = visual.interval_secs.max(1) as f64;
+                        target_fill = (idle / iv).clamp(0.0, 1.0);
+                    }
+                }
+            }
+            // Ease toward the target: smooth rise, quick-ish drop on a poke.
+            fill += (target_fill - fill) * 0.3;
             phase = (phase + 0.045).fract();
-            let icon = cup_icon_phase(visual.tint, visual.steam, visual.ring, phase);
+            let icon = cup_icon_phase(
+                visual.tint,
+                visual.steam,
+                visual.ring,
+                Some(fill),
+                phase,
+            );
             let _ = handles.tray.set_icon(Some(icon));
             let _ = handles.tray.set_icon_as_template(visual.template);
         }
@@ -452,6 +491,7 @@ pub fn sync(app: &AppHandle, status: &StatusSnapshot) {
         ring,
         template,
         animate,
+        interval_secs: status.interval_secs,
     };
     if !animate {
         let _ = handles.tray.set_icon(Some(cup_icon(tint, steam, ring)));
