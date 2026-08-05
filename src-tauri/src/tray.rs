@@ -17,6 +17,61 @@ pub struct TrayHandles {
     toggle_item: MenuItem<tauri::Wry>,
 }
 
+/// Espresso cup glyph drawn at runtime (44×44 RGBA): no icon assets, and
+/// the tint can follow the engine state. `None` = solid black for the
+/// macOS template icon (the OS recolors it for light/dark menu bars).
+fn cup_icon(tint: Option<[u8; 3]>, steam: bool) -> tauri::image::Image<'static> {
+    const S: usize = 44;
+    let [r, g, b] = tint.unwrap_or([0, 0, 0]);
+    let mut rgba = vec![0u8; S * S * 4];
+
+    // Signed-distance helpers, all in pixel space.
+    let rounded_rect = |x: f64, y: f64, cx: f64, cy: f64, hw: f64, hh: f64, rad: f64| -> f64 {
+        let dx = (x - cx).abs() - (hw - rad);
+        let dy = (y - cy).abs() - (hh - rad);
+        let ox = dx.max(0.0);
+        let oy = dy.max(0.0);
+        (ox * ox + oy * oy).sqrt() + dx.max(dy).min(0.0) - rad
+    };
+    let ring = |x: f64, y: f64, cx: f64, cy: f64, r_out: f64, r_in: f64| -> f64 {
+        let d = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
+        (d - r_out).max(r_in - d)
+    };
+
+    for py in 0..S {
+        for px in 0..S {
+            let x = px as f64 + 0.5;
+            let y = py as f64 + 0.5;
+
+            // Cup body, handle, saucer; optional steam dashes on top.
+            let body = rounded_rect(x, y, 19.0, 25.5, 9.0, 7.5, 3.0);
+            let handle = ring(x, y, 30.0, 24.0, 5.0, 2.6).max(19.0 - x);
+            let saucer = rounded_rect(x, y, 20.0, 36.5, 12.0, 1.5, 1.5);
+            let mut d = body.min(handle).min(saucer);
+            if steam {
+                let s1 = rounded_rect(x, y, 15.5, 11.0, 1.3, 3.5, 1.3);
+                let s2 = rounded_rect(x, y, 22.5, 9.5, 1.3, 3.5, 1.3);
+                d = d.min(s1).min(s2);
+            }
+
+            // 1px anti-aliased edge.
+            let alpha = (0.5 - d).clamp(0.0, 1.0);
+            if alpha > 0.0 {
+                let i = (py * S + px) * 4;
+                rgba[i] = r;
+                rgba[i + 1] = g;
+                rgba[i + 2] = b;
+                rgba[i + 3] = (alpha * 255.0) as u8;
+            }
+        }
+    }
+    tauri::image::Image::new_owned(rgba, S as u32, S as u32)
+}
+
+const TINT_ACTIVE: [u8; 3] = [52, 211, 153]; // emerald
+const TINT_SUSPENDED: [u8; 3] = [148, 163, 184]; // slate
+const TINT_DEGRADED: [u8; 3] = [248, 113, 113]; // soft red
+
 pub fn create(app: &AppHandle) -> tauri::Result<()> {
     let status_item = MenuItem::with_id(app, "status", "Off", false, None::<&str>)?;
     let toggle_item = MenuItem::with_id(app, "toggle", "Activate", true, None::<&str>)?;
@@ -35,11 +90,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     )?;
 
     let builder = TrayIconBuilder::with_id("main")
-        .icon(
-            app.default_window_icon()
-                .expect("bundled window icon")
-                .clone(),
-        )
+        .icon(cup_icon(None, false))
         .icon_as_template(true)
         .tooltip("EspressoMacchiato — Off")
         .menu(&menu)
@@ -141,6 +192,17 @@ pub fn sync(app: &AppHandle, status: &StatusSnapshot) {
     let _ = handles
         .tray
         .set_tooltip(Some(format!("EspressoMacchiato — {label}")));
+
+    // State-colored cup: template (auto light/dark) when off, emerald with
+    // steam while running, slate on suspend, red when degraded.
+    let (icon, template) = match status.state {
+        "active" => (cup_icon(Some(TINT_ACTIVE), true), false),
+        "suspended" => (cup_icon(Some(TINT_SUSPENDED), false), false),
+        "degraded" => (cup_icon(Some(TINT_DEGRADED), true), false),
+        _ => (cup_icon(None, false), true),
+    };
+    let _ = handles.tray.set_icon(Some(icon));
+    let _ = handles.tray.set_icon_as_template(template);
 }
 
 /// Compact text next to the tray icon (macOS menu bar only).

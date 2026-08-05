@@ -31,10 +31,8 @@ export function Toggle({
       <span
         aria-hidden="true"
         className={clsx(
-          "absolute top-0.5 h-[22px] w-[22px] rounded-full shadow transition-transform",
-          checked
-            ? "translate-x-[22px] bg-on-accent"
-            : "translate-x-0.5 bg-ink-2",
+          "absolute left-0 top-0.5 h-[22px] w-[22px] rounded-full bg-white shadow transition-transform",
+          checked ? "translate-x-[24px]" : "translate-x-0.5",
         )}
       />
     </button>

@@ -1,12 +1,20 @@
-// State word + activation controls. The display face appears here and only
-// here: one occurrence per screen (spec §7).
+// Status chip + main power switch + duration. The keep-awake control is
+// one row among the app's panels now, not a shouting headline.
 
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Toggle } from "../../components/Toggle";
 import { toDurationSecs, type DurationChoice } from "../../lib/duration";
 import { ipc, type Settings, type StatusSnapshot } from "../../lib/ipc";
 
-const STATE_COLOR: Record<StatusSnapshot["state"], string> = {
+const DOT_COLOR: Record<StatusSnapshot["state"], string> = {
+  off: "bg-ink-2",
+  active: "bg-ok",
+  suspended: "bg-accent",
+  degraded: "bg-alert",
+};
+
+const TEXT_COLOR: Record<StatusSnapshot["state"], string> = {
   off: "text-ink-2",
   active: "text-ok",
   suspended: "text-accent",
@@ -16,7 +24,6 @@ const STATE_COLOR: Record<StatusSnapshot["state"], string> = {
 export function EngineControls({
   status,
   settings,
-  compact = false,
 }: {
   status: StatusSnapshot | null;
   settings: Settings | null;
@@ -45,16 +52,18 @@ export function EngineControls({
 
   return (
     <section aria-label={t("app.name")}>
-      <div className="flex items-end justify-between gap-3">
+      <div className="flex items-center justify-between gap-3">
         <div className="min-w-0">
-          <p
-            className={`display ${compact ? "text-2xl" : "text-3xl"} ${
-              status ? STATE_COLOR[status.state] : "text-ink-2"
-            }`}
-          >
+          <span className={`chip ${status ? TEXT_COLOR[status.state] : "text-ink-2"}`}>
+            <span
+              aria-hidden="true"
+              className={`h-2 w-2 rounded-full ${
+                status ? DOT_COLOR[status.state] : "bg-ink-2"
+              }`}
+            />
             {status ? t(`state.${status.state}`) : t("common.dash")}
-          </p>
-          <p className="truncate text-sm text-ink-2">
+          </span>
+          <p className="mt-1.5 truncate text-xs text-ink-2">
             {detail}
             {on &&
               status?.remaining_secs != null &&
@@ -63,17 +72,11 @@ export function EngineControls({
               })}`}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => (on ? ipc.setActive(false) : activate())}
-          className={`min-h-9 shrink-0 rounded-full px-5 py-2 font-semibold ${
-            on
-              ? "bg-alert-fill text-on-alert-fill"
-              : "bg-accent text-on-accent"
-          }`}
-        >
-          {on ? t("engine.deactivate") : t("engine.activate")}
-        </button>
+        <Toggle
+          checked={on}
+          onChange={(next) => (next ? activate() : ipc.setActive(false))}
+          label={on ? t("engine.deactivate") : t("engine.activate")}
+        />
       </div>
 
       {!on && (
@@ -83,7 +86,7 @@ export function EngineControls({
           </label>
           <select
             id="duration"
-            className="min-h-8 rounded border border-line bg-surface p-1"
+            className="min-h-8 flex-1 rounded-full border border-line bg-surface-2 px-3 py-1"
             value={
               duration.kind === "minutes"
                 ? String(duration.minutes)
@@ -121,7 +124,7 @@ export function EngineControls({
               aria-label={t("engine.untilTime")}
               value={untilTime}
               onChange={(e) => setUntilTime(e.target.value)}
-              className="min-h-8 rounded border border-line bg-surface p-1"
+              className="min-h-8 rounded-full border border-line bg-surface-2 px-2 py-1"
             />
           )}
         </div>

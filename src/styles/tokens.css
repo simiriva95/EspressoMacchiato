@@ -1,73 +1,79 @@
-/* Design tokens — the Italian bar counter. Everything derives from here;
-   no hex values in components. Reference: spec §7. */
+/* Design tokens v2 — modern liquid glass.
+   Deep graphite base (not brown), translucent white-alpha surfaces with a
+   specular top highlight, one warm caramel accent (the espresso identity),
+   emerald for "running", soft red for alerts. Components only ever use the
+   semantic names below. */
 
 :root {
-  /* Palette */
-  --tostato: #241814; /* dark background */
-  --tostato-alt: #31221c; /* elevated surfaces */
-  --acciaio: #8c9196; /* brushed steel: borders, secondary */
-  --acciaio-scuro: #5a5f63;
-  --crema: #e4c79a; /* primary accent, fills */
-  --macchiato: #f2e9de; /* text on dark, light background */
-  --verde-pronto: #3fbf6f; /* active state */
-  --rosso-bar: #a8272c; /* alerts, bar sign red */
+  /* Brand accents */
+  --caramel: #e8a54c; /* primary accent — crema, warm, on dark and light */
+  --on-caramel: #201403;
+  --emerald: #34d399; /* running state (dark scheme) */
+  --red-soft: #f87171; /* alert text on dark */
+  --red-fill: #dc2626; /* alert fill */
 }
 
-/* Semantic tokens, dark scheme (default). --alert stays readable as TEXT
-   on dark (rosso-bar itself fails contrast on tostato: fill-only there). */
+/* ---------- dark scheme (default) ---------- */
 :root {
-  --bg: var(--tostato);
-  --surface: var(--tostato-alt);
-  --ink: var(--macchiato);
-  /* --acciaio passes ~5.5:1 on --tostato but spec prefers macchiato @ 70% */
-  --ink-2: color-mix(in srgb, var(--macchiato) 72%, transparent);
-  --line: color-mix(in srgb, var(--acciaio) 35%, transparent);
-  --accent: var(--crema);
-  --on-accent: var(--tostato);
-  --ok: var(--verde-pronto);
-  --alert: #e36b6f;
-  --alert-fill: var(--rosso-bar);
-  --on-alert-fill: var(--macchiato);
-  /* Liquid-glass variants: used when the OS provides vibrancy behind the
-     window (macOS), activated via [data-glass]. */
-  --bg-glass: color-mix(in srgb, var(--tostato) 52%, transparent);
-  --surface-glass: color-mix(in srgb, var(--tostato-alt) 58%, transparent);
+  --bg: #0e0f13;
+  --surface: rgba(255, 255, 255, 0.065);
+  --surface-2: rgba(255, 255, 255, 0.04);
+  --ink: #f2f3f5;
+  --ink-2: rgba(242, 243, 245, 0.62);
+  --line: rgba(255, 255, 255, 0.12);
+  --accent: var(--caramel);
+  --on-accent: var(--on-caramel);
+  --ok: var(--emerald);
+  --alert: var(--red-soft);
+  --alert-fill: var(--red-fill);
+  --on-alert-fill: #ffffff;
+  /* Liquid glass material */
+  --glass-highlight: rgba(255, 255, 255, 0.14);
+  --glass-shadow: 0 10px 30px rgba(0, 0, 0, 0.45);
+  /* Window translucency variants ([data-glass], macOS vibrancy behind) */
+  --bg-glass: rgba(14, 15, 19, 0.5);
+  --surface-glass: rgba(255, 255, 255, 0.075);
 }
 
-/* Light scheme values (spec: macchiato background, tostato text, accents
-   unchanged — except states, re-derived for AA contrast on light). */
+/* ---------- light scheme ---------- */
 @media (prefers-color-scheme: light) {
   :root:not([data-theme="dark"]) {
-    --bg: var(--macchiato);
-    --surface: #faf4ea;
-    --ink: var(--tostato);
-    --ink-2: var(--acciaio-scuro);
-    --line: color-mix(in srgb, var(--acciaio) 55%, transparent);
-    --accent: var(--crema);
-    --on-accent: var(--tostato);
-    --ok: #1d7a45;
-    --alert: var(--rosso-bar);
-    --alert-fill: var(--rosso-bar);
-    --on-alert-fill: var(--macchiato);
-    --bg-glass: color-mix(in srgb, var(--macchiato) 55%, transparent);
-    --surface-glass: color-mix(in srgb, #faf4ea 62%, transparent);
+    --bg: #f3f1ee;
+    --surface: rgba(255, 255, 255, 0.72);
+    --surface-2: rgba(255, 255, 255, 0.5);
+    --ink: #1b1c20;
+    --ink-2: rgba(27, 28, 32, 0.62);
+    --line: rgba(20, 20, 25, 0.12);
+    --accent: var(--caramel);
+    --on-accent: var(--on-caramel);
+    --ok: #0e8a54;
+    --alert: #c53030;
+    --alert-fill: #c53030;
+    --on-alert-fill: #ffffff;
+    --glass-highlight: rgba(255, 255, 255, 0.7);
+    --glass-shadow: 0 10px 30px rgba(30, 25, 15, 0.12);
+    --bg-glass: rgba(243, 241, 238, 0.55);
+    --surface-glass: rgba(255, 255, 255, 0.55);
   }
 }
 
 :root[data-theme="light"] {
-  --bg: var(--macchiato);
-  --surface: #faf4ea;
-  --ink: var(--tostato);
-  --ink-2: var(--acciaio-scuro);
-  --line: color-mix(in srgb, var(--acciaio) 55%, transparent);
-  --accent: var(--crema);
-  --on-accent: var(--tostato);
-  --ok: #1d7a45;
-  --alert: var(--rosso-bar);
-  --alert-fill: var(--rosso-bar);
-  --on-alert-fill: var(--macchiato);
-  --bg-glass: color-mix(in srgb, var(--macchiato) 55%, transparent);
-  --surface-glass: color-mix(in srgb, #faf4ea 62%, transparent);
+  --bg: #f3f1ee;
+  --surface: rgba(255, 255, 255, 0.72);
+  --surface-2: rgba(255, 255, 255, 0.5);
+  --ink: #1b1c20;
+  --ink-2: rgba(27, 28, 32, 0.62);
+  --line: rgba(20, 20, 25, 0.12);
+  --accent: var(--caramel);
+  --on-accent: var(--on-caramel);
+  --ok: #0e8a54;
+  --alert: #c53030;
+  --alert-fill: #c53030;
+  --on-alert-fill: #ffffff;
+  --glass-highlight: rgba(255, 255, 255, 0.7);
+  --glass-shadow: 0 10px 30px rgba(30, 25, 15, 0.12);
+  --bg-glass: rgba(243, 241, 238, 0.55);
+  --surface-glass: rgba(255, 255, 255, 0.55);
 }
 
 /* Vibrancy behind the window: translucent layers over the OS blur. */

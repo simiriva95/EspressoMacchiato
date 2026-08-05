@@ -314,7 +314,7 @@ pub fn run() {
                 tauri::WebviewUrl::default(),
             )
             .title("EspressoMacchiato")
-            .inner_size(360.0, 500.0)
+            .inner_size(360.0, 460.0)
             .decorations(false)
             .resizable(false)
             .visible(false)
