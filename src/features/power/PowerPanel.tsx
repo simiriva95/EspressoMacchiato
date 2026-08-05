@@ -62,7 +62,7 @@ export function PowerPanel() {
 
       <div>
         <div className="flex items-baseline gap-2">
-          <span className="mono text-4xl" data-testid="battery-percent">
+          <span className="mono text-2xl" data-testid="battery-percent">
             {power?.percent != null
               ? `${Math.round(power.percent)}%`
               : t("power.notAvailable")}

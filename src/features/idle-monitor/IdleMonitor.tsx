@@ -76,7 +76,7 @@ export function IdleMonitor({ status, pokeSignal = 0, compact = false }: Props) 
 
       <div className="mt-2">
         <div
-          className={`mono ${compact ? "text-4xl" : "text-5xl"} ${
+          className={`mono ${compact ? "text-xl" : "text-2xl"} ${
             flashing ? "poke-flash" : ""
           }`}
           data-testid="idle-value"

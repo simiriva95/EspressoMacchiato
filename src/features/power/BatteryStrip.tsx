@@ -29,7 +29,7 @@ export function BatteryStrip() {
   return (
     <section aria-label={t("power.title")} className="card p-3">
       <div className="flex items-baseline justify-between gap-2 text-sm">
-        <span className="mono text-lg">{Math.round(fill)}%</span>
+        <span className="mono text-base">{Math.round(fill)}%</span>
         <span className="truncate text-xs text-ink-2">
           {power.on_ac ? t("power.onAc") : t("power.onBattery")}
           {power.watts != null && ` · ${power.watts.toFixed(1)} W`}
