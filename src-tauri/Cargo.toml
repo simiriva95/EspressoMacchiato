@@ -1,6 +1,6 @@
 [package]
 name = "espresso-macchiato"
-version = "0.2.0"
+version = "0.3.0"
 description = "Keep your machine awake and present. Menu bar / tray app for macOS and Linux."
 authors = ["EspressoMacchiato contributors"]
 license = "MIT"

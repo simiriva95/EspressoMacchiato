@@ -6,7 +6,7 @@
 
 ![macOS 12+](https://img.shields.io/badge/macOS-12%2B-black) ![Linux X11/Wayland](https://img.shields.io/badge/Linux-X11%20%7C%20Wayland-blue) ![License MIT](https://img.shields.io/badge/license-MIT-green) ![100% local](https://img.shields.io/badge/privacy-100%25%20local%2C%20zero%20telemetry-brightgreen) [![CI](https://github.com/simiriva95/EspressoMacchiato/actions/workflows/ci.yml/badge.svg)](https://github.com/simiriva95/EspressoMacchiato/actions/workflows/ci.yml)
 
-<p align="center"><img src="docs/screenshots/settings-dark.png" width="380" alt="EspressoMacchiato settings window: the idle counter resetting, energy panel, grouped glass cards"></p>
+<p align="center"><img src="docs/screenshots/dashboard-presence.png" width="620" alt="EspressoMacchiato dashboard: animated brewing cup whose coffee level is the live idle counter, big RUNNING state, mini stat strip"></p>
 
 ## Why this exists
 
@@ -17,18 +17,28 @@ Most keep-awake tools only stop the machine from sleeping. That is **not enough*
 | **Sleep/idle inhibition** (IOPMAssertion on macOS, logind/ScreenSaver D-Bus on Linux) | System stays on, display stays on, no lock |
 | **Synthetic HID activity** (zero-delta mouse move by default) | The idle counter resets → presence stays green |
 
-The injection is invisible: no cursor movement, no keystrokes reaching your apps. The **Idle Monitor** panel shows the OS idle counter live — you watch it climb and snap back to zero, so you know it works instead of hoping.
+The injection is invisible: no cursor movement, no keystrokes reaching your apps. The signature **brewing cup** shows the OS idle counter live — a cup that fills with coffee as idle climbs and empties the instant a poke resets it, right in the menu bar. You watch it work instead of hoping.
 
 ## Features
 
-- One-click (or hotkey, default `Cmd/Ctrl+Alt+E`) activation from the menu bar / tray
-- Durations: indefinite, 15m–4h, until a time, until end of day
+**Keep-awake**
+- One click on the menu bar cup opens a full **dashboard**; the tray cup **animates** — steam rises and the coffee level tracks your idle time, tinted by state
+- Activation from the dashboard, a global hotkey (default `Cmd/Ctrl+Alt+E`), the tray menu, or `espresso://` deep links
+- Durations: indefinite, **espresso shot (25-min focus)**, 15m–4h, until a time, until end of day, or **until your meeting ends** (reads your calendar)
+- **Auto-activate while you're in a call** — detects the mic in use, switches off when the call ends
 - Configurable poke interval (10–240 s) and strategy (zero-delta mouse move, F15 key tap, 1px nudge)
-- Schedule windows per weekday, DST-safe
-- Opt-in gates: suspend on battery (with threshold), only while Teams/your app is running, pause when the screen locks; pokes auto-skip while you're actually typing
-- Energy panel: battery %, health, cycles, temperature, watts, 2-hour sparklines, top processes — all local, nothing persisted
-- Opt-in alerts (unplug reminder, low battery, overheat, timer expired), rate-limited
+- Schedule windows per weekday (DST-safe) and opt-in gates: suspend on battery (with threshold), only while Teams/your app runs, pause on screen lock; pokes auto-skip while you're actually typing
+
+**Energy & insight**
+- Energy panel: battery %, health, cycles, temperature, watts, interactive 2h/4h/8h history charts, top processes — all local, nothing persisted
+- **Weekly report**: protected-presence time, pokes, espresso shots and a monthly battery-health trend
+- Opt-in, rate-limited alerts: unplug reminder, low battery (names the heaviest process), overheat, timer expired, monthly calibration reminder
+
+**Feel**
+- Liquid-glass design, accent themes, an optional floating **HUD pill**, live progress ring on the tray icon
 - Bilingual UI (EN/IT), light/dark, WCAG 2.2 AA
+- **Raycast** script commands and **Apple Shortcuts** support via the deep-link scheme
+- 100% local: no telemetry, no accounts, no network calls
 
 ## Tested compatibility
 

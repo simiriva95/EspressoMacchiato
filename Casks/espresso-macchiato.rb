@@ -7,8 +7,8 @@
 # quarantined apps. Bump version/sha256 on each release (sha from the
 # release's SHA256SUMS or `shasum -a 256 <dmg>`).
 cask "espresso-macchiato" do
-  version "0.2.0"
-  sha256 "87f32f6f47d63d5c435233b70a3d083daf3092f97382dfcfbe87d9c58f63f71b"
+  version "0.3.0"
+  sha256 "07daee14c0005891b4dc55c8e04aecad13d8bd7d4216182a4c3228baa8d9f684"
 
   url "https://github.com/simiriva95/EspressoMacchiato/releases/download/v#{version}/EspressoMacchiato_#{version}_aarch64.dmg"
   name "EspressoMacchiato"

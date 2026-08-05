@@ -3,6 +3,22 @@
 All notable changes to this project are documented in this file.
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/); versioning: [SemVer](https://semver.org).
 
+## [0.3.0] - 2026-08-05
+
+### Changed
+
+- Reorganized the main window into a wide **dashboard** with a nav rail
+  (Presence / Energy / Activity / Settings) — the whole app is visible, not
+  hidden behind a settings button. Left-clicking the tray icon opens it
+  directly; the small popover is gone.
+- Signature **brewing cup**: an animated cup whose coffee level is the live
+  idle counter (fills toward the interval, drains on a poke) with bold
+  rising steam, in both the dashboard hero and the menu-bar icon.
+- The tray icon now animates (steam + coffee fill) and is drawn at runtime,
+  tinted by state with a live progress ring.
+- Refined toggles, display typeface (Bricolage Grotesque), staggered
+  section entrance, reduced-motion aware throughout.
+
 ## [0.2.0] - 2026-08-05
 
 ### Added

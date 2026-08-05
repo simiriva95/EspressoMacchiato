@@ -6,7 +6,7 @@
 
 ![macOS 12+](https://img.shields.io/badge/macOS-12%2B-black) ![Linux X11/Wayland](https://img.shields.io/badge/Linux-X11%20%7C%20Wayland-blue) ![Licenza MIT](https://img.shields.io/badge/licenza-MIT-green) ![100% locale](https://img.shields.io/badge/privacy-100%25%20locale%2C%20zero%20telemetria-brightgreen) [![CI](https://github.com/simiriva95/EspressoMacchiato/actions/workflows/ci.yml/badge.svg)](https://github.com/simiriva95/EspressoMacchiato/actions/workflows/ci.yml)
 
-<p align="center"><img src="docs/screenshots/settings-dark.png" width="380" alt="Finestra impostazioni di EspressoMacchiato: contatore di inattività che si azzera, pannello energia, card in vetro"></p>
+<p align="center"><img src="docs/screenshots/dashboard-presence.png" width="620" alt="Dashboard di EspressoMacchiato: tazza animata il cui livello di caffè è il contatore di inattività live, stato IN FUNZIONE grande, striscia di statistiche"></p>
 
 ## Perché esiste
 
@@ -17,18 +17,28 @@ La maggior parte dei keep-awake impedisce solo lo sleep. **Non basta**: i client
 | **Inibizione sleep/idle** (IOPMAssertion su macOS, D-Bus logind/ScreenSaver su Linux) | Sistema acceso, display acceso, niente blocco |
 | **Attività HID sintetica** (mouse move a delta zero di default) | Il contatore di inattività si azzera → presenza verde |
 
-L'iniezione è invisibile: il cursore non si muove, nessun tasto arriva alle tue app. Il pannello **Contatore di inattività** mostra il valore in tempo reale: lo vedi salire e tornare a zero, quindi sai che funziona invece di sperarlo.
+L'iniezione è invisibile: il cursore non si muove, nessun tasto arriva alle tue app. La **tazza fumante** mostra il contatore in tempo reale: una tazza che si riempie di caffè mentre l'inattività sale e si svuota appena un poke la azzera, direttamente nella menu bar. La guardi funzionare invece di sperarlo.
 
 ## Funzionalità
 
-- Attivazione con un click (o hotkey, default `Cmd/Ctrl+Alt+E`) dalla menu bar / tray
-- Durate: senza limite, 15m–4h, fino a un orario, fino a fine giornata
+**Keep-awake**
+- Un click sulla tazza nella menu bar apre una **dashboard** completa; la tazza nel tray è **animata** — il vapore sale e il livello del caffè segue la tua inattività, colorato in base allo stato
+- Attivazione dalla dashboard, hotkey globale (default `Cmd/Ctrl+Alt+E`), menu del tray o deep link `espresso://`
+- Durate: senza limite, **espresso (focus 25 min)**, 15m–4h, fino a un orario, fino a fine giornata, o **fino a fine riunione** (legge il calendario)
+- **Attivazione automatica in call** — rileva il microfono in uso, si spegne a fine chiamata
 - Intervallo di poke configurabile (10–240 s) e strategia (mouse move a delta zero, tocco F15, spostamento 1px)
-- Finestre orarie per giorno della settimana, robuste al cambio ora
-- Gate opzionali: sospendi a batteria (con soglia), solo con Teams/una tua app aperta, pausa a schermo bloccato; i poke si saltano da soli mentre stai davvero scrivendo
-- Pannello energia: % batteria, salute, cicli, temperatura, watt, sparkline 2 ore, processi più pesanti — tutto locale, niente su disco
-- Avvisi opzionali (stacca il caricatore, batteria in riserva, surriscaldamento, timer scaduto), con rate limit
+- Finestre orarie per giorno (robuste al cambio ora) e gate opzionali: sospendi a batteria (con soglia), solo con Teams/una tua app aperta, pausa a schermo bloccato; i poke si saltano da soli mentre scrivi davvero
+
+**Energia e statistiche**
+- Pannello energia: % batteria, salute, cicli, temperatura, watt, grafici interattivi 2h/4h/8h, processi più pesanti — tutto locale, niente su disco
+- **Report settimanale**: ore di presenza protetta, poke, espresso completati e trend mensile di salute batteria
+- Avvisi opzionali con rate limit: stacca il caricatore, batteria in riserva (col processo più pesante), surriscaldamento, timer scaduto, promemoria calibrazione mensile
+
+**Esperienza**
+- Design liquid-glass, temi con colore accento, **pillola HUD** galleggiante opzionale, anello di progresso live sull'icona
 - UI bilingue (IT/EN), tema chiaro/scuro, WCAG 2.2 AA
+- Comandi **Raycast** e supporto **Apple Shortcuts** tramite lo schema deep-link
+- 100% locale: zero telemetria, zero account, zero chiamate di rete
 
 ## Compatibilità testata
 
