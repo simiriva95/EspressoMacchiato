@@ -57,10 +57,10 @@ L'iniezione è invisibile: il cursore non si muove, nessun tasto arriva alle tue
 
 ```bash
 brew tap simiriva95/espressomacchiato https://github.com/simiriva95/EspressoMacchiato
-brew install --cask --no-quarantine espresso-macchiato
+brew install --cask espresso-macchiato
 ```
 
-`--no-quarantine` perché l'app è firmata ad-hoc, non notarizzata — la notarizzazione costa 99 $/anno e il codice è ispezionabile. Oppure a mano: scarica il `.dmg` dalle [Release](https://github.com/simiriva95/EspressoMacchiato/releases), trascina in Applicazioni, poi:
+Il cask toglie da solo la quarantena (l'app è self-signed, non notarizzata — la notarizzazione costa 99 $/anno e il codice è pubblico e ispezionabile). Oppure a mano: scarica il `.dmg` dalle [Release](https://github.com/simiriva95/EspressoMacchiato/releases), trascina in Applicazioni, poi:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/EspressoMacchiato.app

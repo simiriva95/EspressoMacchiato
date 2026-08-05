@@ -57,10 +57,10 @@ The injection is invisible: no cursor movement, no keystrokes reaching your apps
 
 ```bash
 brew tap simiriva95/espressomacchiato https://github.com/simiriva95/EspressoMacchiato
-brew install --cask --no-quarantine espresso-macchiato
+brew install --cask espresso-macchiato
 ```
 
-`--no-quarantine` because the app is ad-hoc signed, not notarized — notarization costs 99 $/year and the code is inspectable. Or manually: download the `.dmg` from [Releases](https://github.com/simiriva95/EspressoMacchiato/releases), drag to Applications, then:
+The cask strips the quarantine flag for you (the app is self-signed, not notarized — notarization costs 99 $/year and the code is public and inspectable). Or manually: download the `.dmg` from [Releases](https://github.com/simiriva95/EspressoMacchiato/releases), drag to Applications, then:
 
 ```bash
 xattr -dr com.apple.quarantine /Applications/EspressoMacchiato.app

@@ -1,11 +1,11 @@
-# Homebrew cask, served straight from this repo as a tap (snapkit-style):
+# Homebrew cask, served straight from this repo as a tap:
 #   brew tap simiriva95/espressomacchiato https://github.com/simiriva95/EspressoMacchiato
-#   brew install --cask --no-quarantine espresso-macchiato
+#   brew install --cask espresso-macchiato
 #
-# --no-quarantine is required until the app is notarized: Homebrew
-# quarantines cask downloads by default and Gatekeeper rejects unnotarized
-# quarantined apps. Bump version/sha256 on each release (sha from the
-# release's SHA256SUMS or `shasum -a 256 <dmg>`).
+# The app is self-signed, not notarized, so the postflight strips the
+# quarantine flag (Gatekeeper would otherwise reject it). Bump version and
+# sha256 on each release (sha from the release's SHA256SUMS or
+# `shasum -a 256 <dmg>`).
 cask "espresso-macchiato" do
   version "0.3.0"
   sha256 "07daee14c0005891b4dc55c8e04aecad13d8bd7d4216182a4c3228baa8d9f684"
@@ -19,14 +19,19 @@ cask "espresso-macchiato" do
   depends_on macos: ">= :monterey"
   app "EspressoMacchiato.app"
 
+  # Self-signed, not notarized: drop the quarantine flag so Gatekeeper lets
+  # it launch. The code is public and inspectable; notarization costs
+  # 99 $/yr and is skipped for v1.
+  postflight do
+    system_command "/usr/bin/xattr",
+                   args: ["-dr", "com.apple.quarantine", "#{appdir}/EspressoMacchiato.app"],
+                   sudo: false
+  end
+
   caveats <<~EOS
-    EspressoMacchiato is not notarized yet — install with --no-quarantine:
-      brew install --cask --no-quarantine espresso-macchiato
-    If you installed without it and macOS says the app is damaged:
-      xattr -cr /Applications/EspressoMacchiato.app
-    Then grant Accessibility: System Settings → Privacy & Security →
-    Accessibility → enable EspressoMacchiato (needed to reset the idle
-    counter — the app tells you if it's missing).
+    After install, grant Accessibility so EspressoMacchiato can reset the
+    idle counter: System Settings → Privacy & Security → Accessibility →
+    enable EspressoMacchiato (the app tells you if it's missing).
   EOS
 
   zap trash: [
