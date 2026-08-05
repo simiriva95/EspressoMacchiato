@@ -88,6 +88,11 @@ pub trait ConditionProbe: Send + Sync {
     fn battery_percent(&self) -> Option<f32>;
     fn screen_locked(&self) -> Option<bool>;
     fn any_process_running(&self, names: &[String]) -> bool;
+    /// Is any input device capturing right now (a call in progress)?
+    /// Default None = not observable on this platform.
+    fn mic_in_use(&self) -> Option<bool> {
+        None
+    }
 }
 
 /// Case-insensitive substring match on executable names, shared by the

@@ -17,8 +17,11 @@ import {
   type ActivityStrategy,
   type ScheduleWindow,
   type Settings,
+  type StatsReport,
   type StatusSnapshot,
 } from "../lib/ipc";
+import { ACCENT_SWATCHES } from "../lib/theme";
+import { formatSeconds } from "../lib/format";
 import { useEngine } from "../lib/useEngine";
 
 export function SettingsWindow() {
@@ -51,6 +54,7 @@ export function SettingsWindow() {
       <div className="card p-4">
         <EngineControls status={status} settings={settings} />
       </div>
+      <ReportCard />
       <DegradationsCard degradations={status?.degradations ?? []} />
       <IdleMonitor status={status} pokeSignal={pokeSignal} />
       <PowerPanel />
@@ -257,6 +261,16 @@ function SettingsForm({
             label={t("settings.pauseWhenScreenLocked")}
           />
         </Row>
+        <Row
+          label={t("settings.autoActivateOnCall")}
+          description={t("settings.autoActivateOnCallHelp")}
+        >
+          <Toggle
+            checked={settings.conditions.auto_activate_on_call}
+            onChange={(v) => setConditions({ auto_activate_on_call: v })}
+            label={t("settings.autoActivateOnCall")}
+          />
+        </Row>
       </Card>
 
       <Card title={t("settings.schedule")}>
@@ -323,6 +337,16 @@ function SettingsForm({
             checked={settings.alerts.timer_expired}
             onChange={(v) => setAlerts({ timer_expired: v })}
             label={t("alerts.timerExpired")}
+          />
+        </Row>
+        <Row
+          label={t("alerts.calibration")}
+          description={t("alerts.calibrationHelp")}
+        >
+          <Toggle
+            checked={settings.alerts.calibration_reminder}
+            onChange={(v) => setAlerts({ calibration_reminder: v })}
+            label={t("alerts.calibration")}
           />
         </Row>
       </Card>
@@ -398,6 +422,51 @@ function SettingsForm({
       </Card>
 
       <Card title={t("settings.appearance")}>
+        <Row label={t("settings.menuBarRing")}>
+          <Segmented
+            value={settings.menu_bar_ring}
+            onChange={(v) => set({ menu_bar_ring: v })}
+            label={t("settings.menuBarRing")}
+            options={[
+              { value: "off", label: t("settings.ringOff") },
+              { value: "timer", label: t("settings.ringTimer") },
+              { value: "battery", label: t("settings.ringBattery") },
+            ]}
+          />
+        </Row>
+        <Row label={t("settings.accent")}>
+          <div className="flex gap-1.5" role="group" aria-label={t("settings.accent")}>
+            {ACCENT_SWATCHES.map((swatch) => (
+              <button
+                key={swatch}
+                type="button"
+                aria-pressed={settings.accent === swatch}
+                aria-label={`${t("settings.accent")} ${swatch}`}
+                onClick={() => set({ accent: swatch })}
+                className={`h-7 w-7 rounded-full border-2 transition-transform ${
+                  settings.accent === swatch
+                    ? "scale-110 border-ink"
+                    : "border-transparent"
+                }`}
+                style={{ background: swatch }}
+              />
+            ))}
+          </div>
+        </Row>
+        <Row label={t("settings.hud")} description={t("settings.hudHelp")}>
+          <Toggle
+            checked={settings.hud_enabled}
+            onChange={(v) => set({ hud_enabled: v })}
+            label={t("settings.hud")}
+          />
+        </Row>
+        <Row label={t("settings.sound")}>
+          <Toggle
+            checked={settings.sound_on_activate}
+            onChange={(v) => set({ sound_on_activate: v })}
+            label={t("settings.sound")}
+          />
+        </Row>
         <Row label={t("settings.theme")}>
           <Segmented
             value={settings.theme}
@@ -538,5 +607,39 @@ function ScheduleEditor({
         </div>
       )}
     </>
+  );
+}
+
+function ReportCard() {
+  const { t } = useTranslation();
+  const [report, setReport] = useState<StatsReport | null>(null);
+
+  useEffect(() => {
+    ipc.getStats().then(setReport, () => setReport(null));
+  }, []);
+
+  if (!report) return null;
+  return (
+    <section aria-label={t("report.title")} className="card p-4">
+      <h2 className="text-xs font-semibold uppercase tracking-wide text-ink-2">
+        {t("report.title")}
+      </h2>
+      <dl className="mt-2 grid grid-cols-2 gap-x-4 gap-y-1 text-sm">
+        <dt className="text-ink-2">{t("report.activeTime")}</dt>
+        <dd className="mono">{formatSeconds(report.week_active_secs)}</dd>
+        <dt className="text-ink-2">{t("report.pokes")}</dt>
+        <dd className="mono">{report.week_pokes}</dd>
+        <dt className="text-ink-2">{t("report.shots")}</dt>
+        <dd className="mono">☕ ×{report.shots_today}</dd>
+        {report.health_now != null && report.health_month_ago != null && (
+          <>
+            <dt className="text-ink-2">{t("report.healthTrend")}</dt>
+            <dd className="mono">
+              {report.health_month_ago.toFixed(1)}% → {report.health_now.toFixed(1)}%
+            </dd>
+          </>
+        )}
+      </dl>
+    </section>
   );
 }

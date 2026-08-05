@@ -87,7 +87,7 @@ fn seconds_until_end_of_day(app: &AppHandle) -> Option<u64> {
 /// Espresso cup glyph drawn at runtime (44×44 RGBA): no icon assets, and
 /// the tint can follow the engine state. `None` = solid black for the
 /// macOS template icon (the OS recolors it for light/dark menu bars).
-fn cup_icon(tint: Option<[u8; 3]>, steam: bool) -> tauri::image::Image<'static> {
+fn cup_icon(tint: Option<[u8; 3]>, steam: bool, ring: Option<f64>) -> tauri::image::Image<'static> {
     const S: usize = 44;
     let [r, g, b] = tint.unwrap_or([0, 0, 0]);
     let mut rgba = vec![0u8; S * S * 4];
@@ -100,7 +100,7 @@ fn cup_icon(tint: Option<[u8; 3]>, steam: bool) -> tauri::image::Image<'static> 
         let oy = dy.max(0.0);
         (ox * ox + oy * oy).sqrt() + dx.max(dy).min(0.0) - rad
     };
-    let ring = |x: f64, y: f64, cx: f64, cy: f64, r_out: f64, r_in: f64| -> f64 {
+    let ring_sdf = |x: f64, y: f64, cx: f64, cy: f64, r_out: f64, r_in: f64| -> f64 {
         let d = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
         (d - r_out).max(r_in - d)
     };
@@ -112,13 +112,30 @@ fn cup_icon(tint: Option<[u8; 3]>, steam: bool) -> tauri::image::Image<'static> 
 
             // Cup body, handle, saucer; optional steam dashes on top.
             let body = rounded_rect(x, y, 19.0, 25.5, 9.0, 7.5, 3.0);
-            let handle = ring(x, y, 30.0, 24.0, 5.0, 2.6).max(19.0 - x);
+            let handle = ring_sdf(x, y, 30.0, 24.0, 5.0, 2.6).max(19.0 - x);
             let saucer = rounded_rect(x, y, 20.0, 36.5, 12.0, 1.5, 1.5);
             let mut d = body.min(handle).min(saucer);
             if steam {
                 let s1 = rounded_rect(x, y, 15.5, 11.0, 1.3, 3.5, 1.3);
                 let s2 = rounded_rect(x, y, 22.5, 9.5, 1.3, 3.5, 1.3);
                 d = d.min(s1).min(s2);
+            }
+            // Progress ring around the cup (timer remaining or battery),
+            // clockwise from 12 o'clock.
+            if let Some(fraction) = ring {
+                let cx = 21.0;
+                let cy = 22.0;
+                let dist = ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
+                let band = (dist - 20.5).max(18.3 - dist);
+                if band < 0.5 {
+                    let mut angle = (x - cx).atan2(-(y - cy)); // 0 at top, cw
+                    if angle < 0.0 {
+                        angle += std::f64::consts::TAU;
+                    }
+                    if angle <= fraction.clamp(0.0, 1.0) * std::f64::consts::TAU {
+                        d = d.min(band);
+                    }
+                }
             }
 
             // 1px anti-aliased edge.
@@ -180,7 +197,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
     )?;
 
     let builder = TrayIconBuilder::with_id("main")
-        .icon(cup_icon(None, false))
+        .icon(cup_icon(None, false, None))
         .icon_as_template(true)
         .tooltip("EspressoMacchiato — Off")
         .menu(&menu)
@@ -297,13 +314,37 @@ pub fn sync(app: &AppHandle, status: &StatusSnapshot) {
         .tray
         .set_tooltip(Some(format!("EspressoMacchiato — {label}")));
 
+    // Progress ring: timer remaining (when a timed run is active) or
+    // battery charge, per the menu_bar_ring setting.
+    let ring = {
+        let mode = app
+            .state::<AppState>()
+            .settings
+            .lock()
+            .unwrap()
+            .menu_bar_ring
+            .clone();
+        match mode.as_str() {
+            "timer" => status
+                .remaining_secs
+                .zip(status.duration_total_secs)
+                .filter(|(_, total)| *total > 0)
+                .map(|(remaining, total)| remaining as f64 / total as f64),
+            "battery" => app
+                .try_state::<crate::PowerHub>()
+                .and_then(|hub| hub.latest.lock().unwrap().as_ref().and_then(|s| s.percent))
+                .map(|p| f64::from(p) / 100.0),
+            _ => None,
+        }
+    };
+
     // State-colored cup: template (auto light/dark) when off, emerald with
     // steam while running, slate on suspend, red when degraded.
     let (icon, template) = match status.state {
-        "active" => (cup_icon(Some(TINT_ACTIVE), true), false),
-        "suspended" => (cup_icon(Some(TINT_SUSPENDED), false), false),
-        "degraded" => (cup_icon(Some(TINT_DEGRADED), true), false),
-        _ => (cup_icon(None, false), true),
+        "active" => (cup_icon(Some(TINT_ACTIVE), true, ring), false),
+        "suspended" => (cup_icon(Some(TINT_SUSPENDED), false, ring), false),
+        "degraded" => (cup_icon(Some(TINT_DEGRADED), true, ring), false),
+        _ => (cup_icon(None, false, None), true),
     };
     let _ = handles.tray.set_icon(Some(icon));
     let _ = handles.tray.set_icon_as_template(template);

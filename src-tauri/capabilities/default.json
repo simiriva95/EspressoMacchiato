@@ -2,7 +2,11 @@
   "$schema": "../gen/schemas/desktop-schema.json",
   "identifier": "default",
   "description": "Capability for the settings window and the tray popover",
-  "windows": ["main", "popover"],
+  "windows": [
+    "main",
+    "popover",
+    "hud"
+  ],
   "permissions": [
     "core:default",
     "opener:default"

@@ -126,6 +126,7 @@ export function EngineControls({
             }}
           >
             <option value="indefinite">{t("engine.indefinite")}</option>
+            <option value="25">{t("engine.espressoShot")}</option>
             <option value="15">{t("engine.minutes", { count: 15 })}</option>
             <option value="30">{t("engine.minutes", { count: 30 })}</option>
             <option value="60">{t("engine.hours", { count: 1 })}</option>

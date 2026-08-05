@@ -83,4 +83,16 @@ impl ConditionProbe for LinuxConditionProbe {
     fn any_process_running(&self, names: &[String]) -> bool {
         self.processes.any_running(names)
     }
+
+    /// PulseAudio/PipeWire: any active recording stream = in a call.
+    fn mic_in_use(&self) -> Option<bool> {
+        let out = std::process::Command::new("pactl")
+            .args(["list", "short", "source-outputs"])
+            .output()
+            .ok()?;
+        if !out.status.success() {
+            return None;
+        }
+        Some(!String::from_utf8_lossy(&out.stdout).trim().is_empty())
+    }
 }

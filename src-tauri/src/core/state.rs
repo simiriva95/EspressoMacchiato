@@ -11,6 +11,8 @@ pub enum ActivationReason {
     Hotkey,
     Schedule,
     Autostart,
+    /// Auto-activated because the microphone went in use (a call started).
+    Call,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize)]
@@ -21,6 +23,8 @@ pub enum StopReason {
     TimerExpired,
     #[allow(dead_code)] // set by the scheduler (M2)
     ScheduleClosed,
+    /// The call that auto-activated us ended.
+    CallEnded,
     Quit,
 }
 

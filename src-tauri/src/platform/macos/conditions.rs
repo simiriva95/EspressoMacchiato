@@ -17,6 +17,80 @@ extern "C" {
     fn CGSessionCopyCurrentDictionary() -> CFDictionaryRef;
 }
 
+// CoreAudio: is the default input device capturing anywhere? (CoreAudio/
+// AudioHardware.h). Selectors are four-char codes.
+#[repr(C)]
+struct AudioObjectPropertyAddress {
+    selector: u32,
+    scope: u32,
+    element: u32,
+}
+
+const K_AUDIO_OBJECT_SYSTEM_OBJECT: u32 = 1;
+const K_AUDIO_HARDWARE_PROPERTY_DEFAULT_INPUT_DEVICE: u32 = u32::from_be_bytes(*b"dIn ");
+const K_AUDIO_DEVICE_PROPERTY_DEVICE_IS_RUNNING_SOMEWHERE: u32 = u32::from_be_bytes(*b"gone");
+const K_AUDIO_OBJECT_PROPERTY_SCOPE_GLOBAL: u32 = u32::from_be_bytes(*b"glob");
+const K_AUDIO_OBJECT_PROPERTY_ELEMENT_MAIN: u32 = 0;
+
+#[link(name = "CoreAudio", kind = "framework")]
+extern "C" {
+    fn AudioObjectGetPropertyData(
+        object_id: u32,
+        address: *const AudioObjectPropertyAddress,
+        qualifier_data_size: u32,
+        qualifier_data: *const std::ffi::c_void,
+        data_size: *mut u32,
+        data: *mut std::ffi::c_void,
+    ) -> i32;
+}
+
+/// True while ANY process captures from the default input device — exactly
+/// the "am I in a call" signal. Read-only: no mic permission needed, we
+/// never touch audio data.
+fn default_input_running() -> Option<bool> {
+    unsafe {
+        let addr = AudioObjectPropertyAddress {
+            selector: K_AUDIO_HARDWARE_PROPERTY_DEFAULT_INPUT_DEVICE,
+            scope: K_AUDIO_OBJECT_PROPERTY_SCOPE_GLOBAL,
+            element: K_AUDIO_OBJECT_PROPERTY_ELEMENT_MAIN,
+        };
+        let mut device_id: u32 = 0;
+        let mut size = std::mem::size_of::<u32>() as u32;
+        if AudioObjectGetPropertyData(
+            K_AUDIO_OBJECT_SYSTEM_OBJECT,
+            &addr,
+            0,
+            std::ptr::null(),
+            &mut size,
+            &mut device_id as *mut u32 as *mut _,
+        ) != 0
+            || device_id == 0
+        {
+            return None;
+        }
+
+        let addr = AudioObjectPropertyAddress {
+            selector: K_AUDIO_DEVICE_PROPERTY_DEVICE_IS_RUNNING_SOMEWHERE,
+            scope: K_AUDIO_OBJECT_PROPERTY_SCOPE_GLOBAL,
+            element: K_AUDIO_OBJECT_PROPERTY_ELEMENT_MAIN,
+        };
+        let mut running: u32 = 0;
+        let mut size = std::mem::size_of::<u32>() as u32;
+        if AudioObjectGetPropertyData(
+            device_id,
+            &addr,
+            0,
+            std::ptr::null(),
+            &mut size,
+            &mut running as *mut u32 as *mut _,
+        ) != 0
+        {
+            return None;
+        }
+        Some(running != 0)
+    }
+}
+
 fn session_screen_locked() -> Option<bool> {
     let raw = unsafe { CGSessionCopyCurrentDictionary() };
     if raw.is_null() {
@@ -95,6 +169,10 @@ impl ConditionProbe for MacConditionProbe {
 
     fn any_process_running(&self, names: &[String]) -> bool {
         self.processes.any_running(names)
+    }
+
+    fn mic_in_use(&self) -> Option<bool> {
+        default_input_running()
     }
 }
 

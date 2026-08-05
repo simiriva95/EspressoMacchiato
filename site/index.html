@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>EspressoMacchiato — keep your presence alive</title>
+    <meta
+      name="description"
+      content="Menu bar keep-awake for macOS & Linux that actually resets the OS idle counter, so Teams and Slack stay green. 100% local, zero telemetry, open source."
+    />
+    <meta property="og:title" content="EspressoMacchiato" />
+    <meta
+      property="og:description"
+      content="Keep your machine awake and present — and actually reset the OS idle counter, so Teams stays green."
+    />
+    <style>
+      :root {
+        --tostato: #0e0f13;
+        --surface: rgba(255, 255, 255, 0.06);
+        --line: rgba(255, 255, 255, 0.12);
+        --ink: #f2f3f5;
+        --ink-2: rgba(242, 243, 245, 0.62);
+        --caramel: #e8a54c;
+        --emerald: #34d399;
+      }
+      * {
+        box-sizing: border-box;
+        margin: 0;
+        padding: 0;
+      }
+      body {
+        font-family:
+          system-ui,
+          -apple-system,
+          sans-serif;
+        background:
+          radial-gradient(
+            1200px 600px at 50% -10%,
+            rgba(232, 165, 76, 0.14),
+            transparent
+          ),
+          var(--tostato);
+        color: var(--ink);
+        line-height: 1.55;
+        -webkit-font-smoothing: antialiased;
+      }
+      .wrap {
+        max-width: 880px;
+        margin: 0 auto;
+        padding: 0 24px;
+      }
+      header {
+        text-align: center;
+        padding: 96px 0 40px;
+      }
+      .cup {
+        font-size: 72px;
+        line-height: 1;
+      }
+      h1 {
+        font-size: clamp(2.2rem, 6vw, 3.6rem);
+        letter-spacing: -0.02em;
+        margin: 16px 0 8px;
+      }
+      .tagline {
+        font-size: 1.25rem;
+        color: var(--ink-2);
+        max-width: 620px;
+        margin: 0 auto 8px;
+      }
+      .badges {
+        color: var(--ink-2);
+        font-size: 0.85rem;
+        margin-top: 12px;
+      }
+      .cta {
+        display: inline-flex;
+        gap: 12px;
+        flex-wrap: wrap;
+        justify-content: center;
+        margin-top: 32px;
+      }
+      .btn {
+        display: inline-block;
+        padding: 12px 22px;
+        border-radius: 999px;
+        font-weight: 600;
+        text-decoration: none;
+        transition: transform 0.12s ease;
+      }
+      .btn:hover {
+        transform: translateY(-1px);
+      }
+      .btn-primary {
+        background: var(--caramel);
+        color: #201403;
+      }
+      .btn-ghost {
+        border: 1px solid var(--line);
+        color: var(--ink);
+      }
+      .install {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px 18px;
+        font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 0.9rem;
+        color: var(--ink-2);
+        margin: 28px auto 0;
+        max-width: 640px;
+        text-align: left;
+        overflow-x: auto;
+        white-space: pre;
+      }
+      .why {
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1fr;
+        margin: 40px 0;
+      }
+      @media (min-width: 640px) {
+        .why {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      .card {
+        background: var(--surface);
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        padding: 22px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+      }
+      .card h3 {
+        font-size: 1.05rem;
+        margin-bottom: 6px;
+      }
+      .card p {
+        color: var(--ink-2);
+        font-size: 0.95rem;
+      }
+      .dot {
+        display: inline-block;
+        width: 9px;
+        height: 9px;
+        border-radius: 50%;
+        background: var(--emerald);
+        margin-right: 6px;
+      }
+      section.features {
+        margin: 56px 0;
+      }
+      section.features h2 {
+        text-align: center;
+        margin-bottom: 24px;
+        letter-spacing: -0.01em;
+      }
+      ul.feat {
+        list-style: none;
+        display: grid;
+        gap: 10px;
+        grid-template-columns: 1fr;
+        max-width: 640px;
+        margin: 0 auto;
+      }
+      @media (min-width: 640px) {
+        ul.feat {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+      ul.feat li {
+        color: var(--ink-2);
+        padding-left: 26px;
+        position: relative;
+      }
+      ul.feat li::before {
+        content: "☕";
+        position: absolute;
+        left: 0;
+      }
+      footer {
+        text-align: center;
+        color: var(--ink-2);
+        font-size: 0.85rem;
+        padding: 48px 0 64px;
+        border-top: 1px solid var(--line);
+        margin-top: 40px;
+      }
+      a {
+        color: var(--caramel);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <header>
+        <div class="cup">☕</div>
+        <h1>EspressoMacchiato</h1>
+        <p class="tagline">
+          Keep your machine awake and present — and actually reset the OS idle
+          counter, so <strong>Teams stays green</strong>.
+        </p>
+        <p class="badges">
+          <span class="dot"></span>macOS 12+ &amp; Linux · 100% local · zero
+          telemetry · MIT
+        </p>
+        <div class="cta">
+          <a
+            class="btn btn-primary"
+            href="https://github.com/simiriva95/EspressoMacchiato/releases/latest"
+            >Download</a
+          >
+          <a
+            class="btn btn-ghost"
+            href="https://github.com/simiriva95/EspressoMacchiato"
+            >View source</a
+          >
+        </div>
+        <div class="install">brew tap simiriva95/espressomacchiato https://github.com/simiriva95/EspressoMacchiato
+brew install --cask --no-quarantine espresso-macchiato</div>
+      </header>
+
+      <div class="why">
+        <div class="card">
+          <h3>Sleep inhibition alone isn't enough</h3>
+          <p>
+            Most keep-awake tools only stop sleep. Presence clients read the OS
+            <em>idle counter</em>, which keeps climbing anyway — after ~5
+            minutes you go Away.
+          </p>
+        </div>
+        <div class="card">
+          <h3>We reset the real counter</h3>
+          <p>
+            An invisible zero-delta pointer event resets the same counter Teams
+            and Slack read. The cursor never moves; nothing reaches your apps.
+          </p>
+        </div>
+        <div class="card">
+          <h3>Watch it work</h3>
+          <p>
+            The Idle Monitor shows the OS idle counter live — you see it climb
+            and snap back to zero. No hoping.
+          </p>
+        </div>
+        <div class="card">
+          <h3>An energy dashboard too</h3>
+          <p>
+            Battery health, cycles, temperature, watts, interactive history —
+            all local, nothing persisted, nothing sent anywhere.
+          </p>
+        </div>
+      </div>
+
+      <section class="features">
+        <h2>Everything, quietly</h2>
+        <ul class="feat">
+          <li>Auto-activate while you're in a call</li>
+          <li>Until end of meeting (reads your calendar)</li>
+          <li>Espresso shots: 25-minute focus timers</li>
+          <li>Timers, schedules, battery &amp; process gates</li>
+          <li>Weekly report of protected presence</li>
+          <li>Floating desktop pill, colored menu bar cup</li>
+          <li>Raycast &amp; Apple Shortcuts via espresso:// links</li>
+          <li>Bilingual, light/dark, accent themes, WCAG AA</li>
+        </ul>
+      </section>
+
+      <footer>
+        Ad-hoc / self-signed — install with <code>--no-quarantine</code>. Open
+        source under MIT ·
+        <a href="https://github.com/simiriva95/EspressoMacchiato"
+          >github.com/simiriva95/EspressoMacchiato</a
+        >
+      </footer>
+    </div>
+  </body>
+</html>

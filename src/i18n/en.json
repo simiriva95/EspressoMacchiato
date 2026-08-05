@@ -33,7 +33,8 @@
     "hours_other": "{{count}} hours",
     "untilTime": "Until a time…",
     "untilEndOfDay": "Until end of day ({{time}})",
-    "untilMeeting": "Until end of meeting ({{time}})"
+    "untilMeeting": "Until end of meeting ({{time}})",
+    "espressoShot": "☕ Espresso (25 min)"
   },
   "idle": {
     "title": "Idle counter",
@@ -98,7 +99,17 @@
       "countdown": "Timer countdown",
       "battery": "Battery percentage",
       "watts": "Power draw (W)"
-    }
+    },
+    "autoActivateOnCall": "Auto-activate while I'm in a call",
+    "autoActivateOnCallHelp": "Detects the microphone in use; turns off when the call ends.",
+    "menuBarRing": "Ring on the icon",
+    "ringOff": "Off",
+    "ringTimer": "Timer",
+    "ringBattery": "Battery",
+    "accent": "Accent color",
+    "hud": "Desktop pill",
+    "hudHelp": "Tiny always-on-top counter, draggable. Double-click to toggle.",
+    "sound": "Steam sound on activation"
   },
   "power": {
     "title": "Energy",
@@ -131,7 +142,9 @@
     "below": "below",
     "overheat": "Warn me if the battery runs hot",
     "above": "above",
-    "timerExpired": "Notify me when the timer expires"
+    "timerExpired": "Notify me when the timer expires",
+    "calibration": "Monthly calibration reminder",
+    "calibrationHelp": "Once a month: drain below 10%, charge back to 100%."
   },
   "days": {
     "0": "Mon",
@@ -171,5 +184,12 @@
   "common": {
     "dash": "—",
     "saveError": "Save failed: {{error}}"
+  },
+  "report": {
+    "title": "Your week",
+    "activeTime": "Protected presence",
+    "pokes": "Pokes",
+    "shots": "Espresso shots today",
+    "healthTrend": "Battery health (1 month)"
   }
 }

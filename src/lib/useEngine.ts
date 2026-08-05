@@ -4,7 +4,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import i18n, { resolveLanguage } from "../i18n";
 import { ipc, type Settings, type StatusSnapshot } from "./ipc";
-import { applyTheme } from "./theme";
+import { applyAccent, applyTheme } from "./theme";
 
 export function useEngine() {
   const [status, setStatus] = useState<StatusSnapshot | null>(null);
@@ -20,6 +20,7 @@ export function useEngine() {
     ipc.getSettings().then((s) => {
       setSettings(s);
       applyTheme(s.theme);
+      applyAccent(s.accent);
       i18n.changeLanguage(resolveLanguage(s.language));
     });
     ipc
@@ -40,6 +41,7 @@ export function useEngine() {
   const save = useCallback((next: Settings) => {
     setSettings(next);
     applyTheme(next.theme);
+    applyAccent(next.accent);
     i18n.changeLanguage(resolveLanguage(next.language));
     if (saveTimer.current !== null) window.clearTimeout(saveTimer.current);
     saveTimer.current = window.setTimeout(() => {

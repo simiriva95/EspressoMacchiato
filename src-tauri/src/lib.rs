@@ -3,6 +3,8 @@ mod commands;
 mod config;
 mod core;
 mod platform;
+mod sound;
+mod stats;
 mod tray;
 
 use std::collections::VecDeque;
@@ -47,6 +49,51 @@ pub struct PowerHub {
 
 const HISTORY_CAPACITY: usize = 2880; // 8 h at one sample every 10 s (RAM only)
 const SAMPLE_EVERY: Duration = Duration::from_secs(10);
+
+/// Weekly/daily aggregates (see stats.rs), shared by sink and sampler.
+pub struct StatsHub {
+    pub stats: Mutex<stats::Stats>,
+    pub path: std::path::PathBuf,
+}
+
+#[derive(Debug, PartialEq)]
+pub(crate) enum DeepAction {
+    On(Option<u64>),
+    Off,
+    Toggle,
+}
+
+/// espresso://on[?for=90m|1h|3600], espresso://off, espresso://toggle
+pub(crate) fn parse_deep_link(url: &str) -> Option<DeepAction> {
+    let rest = url.trim().strip_prefix("espresso://")?.to_lowercase();
+    let (action, query) = match rest.split_once('?') {
+        Some((a, q)) => (a.trim_matches('/'), Some(q)),
+        None => (rest.trim_matches('/'), None),
+    };
+    match action {
+        "off" => Some(DeepAction::Off),
+        "toggle" => Some(DeepAction::Toggle),
+        "on" => {
+            let secs = query
+                .and_then(|q| {
+                    q.split('&')
+                        .find_map(|pair| pair.strip_prefix("for="))
+                        .map(str::to_string)
+                })
+                .and_then(|v| {
+                    if let Some(h) = v.strip_suffix('h') {
+                        h.parse::<u64>().ok().map(|n| n * 3600)
+                    } else if let Some(m) = v.strip_suffix('m') {
+                        m.parse::<u64>().ok().map(|n| n * 60)
+                    } else {
+                        v.trim_end_matches('s').parse::<u64>().ok()
+                    }
+                });
+            Some(DeepAction::On(secs))
+        }
+        _ => None,
+    }
+}
 
 /// Backend-side language: settings override, else the LANG env var.
 fn backend_language(settings_language: &str) -> String {
@@ -131,6 +178,7 @@ pub fn run() {
             None,
         ))
         .plugin(tauri_plugin_global_shortcut::Builder::new().build())
+        .plugin(tauri_plugin_deep_link::init())
         .setup(|app| {
             // Menu bar app: no Dock icon, no Cmd+Tab entry. The tray is home.
             #[cfg(target_os = "macos")]
@@ -152,9 +200,37 @@ pub fn run() {
             let app_handle = app.handle().clone();
             // One actionable notification per degradation episode, not spam.
             let degraded_notified = Mutex::new(false);
+            // Previous snapshot: drives the activation sound and the
+            // espresso-shot counter (completed 25-minute runs).
+            let prev_status: Mutex<Option<crate::core::events::StatusSnapshot>> = Mutex::new(None);
             let sink = Box::new(move |event: EngineEvent| {
                 if let EngineEvent::StateChanged { status } = &event {
                     tray::sync(&app_handle, status);
+
+                    let prev = prev_status.lock().unwrap().replace(status.clone());
+                    let was_off = prev.as_ref().is_none_or(|p| p.state == "off");
+                    if status.state == "active" && was_off {
+                        let sound_on = app_handle
+                            .try_state::<AppState>()
+                            .map(|s| s.settings.lock().unwrap().sound_on_activate)
+                            .unwrap_or(false);
+                        if sound_on {
+                            sound::play_steam();
+                        }
+                    }
+                    if status.state == "off"
+                        && status.state_detail == "TimerExpired"
+                        && prev.as_ref().and_then(|p| p.duration_total_secs)
+                            == Some(stats::SHOT_SECS)
+                    {
+                        if let Some(hub) = app_handle.try_state::<StatsHub>() {
+                            let mut st = hub.stats.lock().unwrap();
+                            st.rollover(chrono::Local::now().date_naive());
+                            st.shots_today += 1;
+                            stats::save(&hub.path, &st);
+                        }
+                    }
+
                     let mut notified = degraded_notified.lock().unwrap();
                     match status.state {
                         "degraded" if !*notified => {
@@ -233,7 +309,72 @@ pub fn run() {
                 saver,
             });
             app.manage(PowerHub::default());
+            {
+                let path = stats::stats_path().ok_or("cannot resolve the stats path")?;
+                let mut loaded = stats::load(&path);
+                loaded.rollover(chrono::Local::now().date_naive());
+                app.manage(StatsHub {
+                    stats: Mutex::new(loaded),
+                    path,
+                });
+            }
             tray::create(app.handle())?;
+
+            // espresso://on|off|toggle — Shortcuts, Raycast, scripts.
+            {
+                use tauri_plugin_deep_link::DeepLinkExt;
+                let handle = app.handle().clone();
+                app.deep_link().on_open_url(move |event| {
+                    for url in event.urls() {
+                        match parse_deep_link(url.as_str()) {
+                            Some(DeepAction::On(secs)) => {
+                                handle.state::<AppState>().engine.set_active(
+                                    true,
+                                    ActivationReason::Manual,
+                                    secs,
+                                );
+                            }
+                            Some(DeepAction::Off) => {
+                                handle
+                                    .state::<AppState>()
+                                    .engine
+                                    .set_active(false, ActivationReason::Manual, None);
+                            }
+                            Some(DeepAction::Toggle) => {
+                                handle.state::<AppState>().engine.toggle();
+                            }
+                            None => tracing::warn!("unrecognized deep link: {url}"),
+                        }
+                    }
+                });
+            }
+
+            // Floating HUD pill (optional, all platforms).
+            {
+                let hud = tauri::WebviewWindowBuilder::new(
+                    app,
+                    "hud",
+                    tauri::WebviewUrl::default(),
+                )
+                .title("EspressoMacchiato HUD")
+                .inner_size(210.0, 56.0)
+                .decorations(false)
+                .resizable(false)
+                .visible(false)
+                .always_on_top(true)
+                .skip_taskbar(true)
+                .transparent(true)
+                .build()?;
+                if app
+                    .state::<AppState>()
+                    .settings
+                    .lock()
+                    .unwrap()
+                    .hud_enabled
+                {
+                    let _ = hud.show();
+                }
+            }
 
             // Power sampler: 10 s cadence, in-memory 2 h history, alert
             // evaluation, optional macOS menu bar text. Nothing persisted.
@@ -286,6 +427,55 @@ pub fn run() {
                     };
                     tray::set_battery_line(&sampler_handle, &battery_line);
 
+                    // Refresh the tray (ring, state) with live data, and
+                    // feed the weekly stats.
+                    let status = state.engine.status().await.ok();
+                    if let Some(status) = &status {
+                        tray::sync(&sampler_handle, status);
+                    }
+                    if let Some(hub) = sampler_handle.try_state::<StatsHub>() {
+                        let now = chrono::Local::now();
+                        let mut st = hub.stats.lock().unwrap();
+                        st.rollover(now.date_naive());
+                        if let Some(status) = &status {
+                            if status.state != "off" {
+                                st.week_active_secs += SAMPLE_EVERY.as_secs();
+                            }
+                            st.track_pokes(status.poke_count);
+                        }
+                        if let Some(health) = snapshot.health_percent {
+                            st.track_health(&now.format("%Y-%m").to_string(), health);
+                        }
+
+                        let lang = backend_language(
+                            &state.settings.lock().unwrap().language,
+                        );
+                        // Friday 17:00+ weekly report, once per week.
+                        use chrono::{Datelike, Timelike};
+                        if now.weekday() == chrono::Weekday::Fri
+                            && now.hour() >= 17
+                            && st.last_report_week != st.week_start
+                        {
+                            st.last_report_week = st.week_start.clone();
+                            let (title, body) =
+                                stats::report_message(&st, snapshot.health_percent, &lang);
+                            tray::notify(&sampler_handle, &title, &body);
+                        }
+                        // Monthly calibration reminder (battery coach).
+                        let month = now.format("%Y-%m").to_string();
+                        let calibration_on =
+                            state.settings.lock().unwrap().alerts.calibration_reminder;
+                        if calibration_on
+                            && snapshot.percent.is_some()
+                            && st.last_calibration_month != month
+                        {
+                            st.last_calibration_month = month;
+                            let (title, body) = stats::calibration_message(&lang);
+                            tray::notify(&sampler_handle, &title, &body);
+                        }
+                        stats::save(&hub.path, &st);
+                    }
+
                     let (alerts_cfg, lang, metrics) = {
                         let s = state.settings.lock().unwrap();
                         (
@@ -308,12 +498,8 @@ pub fn run() {
                         let text = if metrics.is_empty() {
                             None
                         } else {
-                            let remaining = state
-                                .engine
-                                .status()
-                                .await
-                                .ok()
-                                .and_then(|s| s.remaining_secs);
+                            let remaining =
+                                status.as_ref().and_then(|s| s.remaining_secs);
                             compose_menu_text(&metrics, &snapshot, remaining)
                         };
                         tray::set_menu_bar_text(&sampler_handle, text);
@@ -391,6 +577,7 @@ pub fn run() {
             commands::get_power_history,
             commands::request_permission,
             commands::get_next_meeting_end,
+            commands::get_stats,
         ])
         .build(tauri::generate_context!())
         .expect("error while building tauri application")
@@ -402,4 +589,33 @@ pub fn run() {
                 state.engine.shutdown();
             }
         });
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{parse_deep_link, DeepAction};
+
+    #[test]
+    fn deep_links_parse() {
+        assert_eq!(parse_deep_link("espresso://off"), Some(DeepAction::Off));
+        assert_eq!(
+            parse_deep_link("espresso://toggle/"),
+            Some(DeepAction::Toggle)
+        );
+        assert_eq!(parse_deep_link("espresso://on"), Some(DeepAction::On(None)));
+        assert_eq!(
+            parse_deep_link("espresso://on?for=90m"),
+            Some(DeepAction::On(Some(5400)))
+        );
+        assert_eq!(
+            parse_deep_link("espresso://on?for=2h"),
+            Some(DeepAction::On(Some(7200)))
+        );
+        assert_eq!(
+            parse_deep_link("espresso://on?for=3600"),
+            Some(DeepAction::On(Some(3600)))
+        );
+        assert_eq!(parse_deep_link("espresso://nope"), None);
+        assert_eq!(parse_deep_link("https://example.com"), None);
+    }
 }

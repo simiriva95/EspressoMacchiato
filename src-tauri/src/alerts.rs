@@ -197,6 +197,7 @@ mod tests {
             overheat: true,
             overheat_celsius: 45.0,
             timer_expired: true,
+            calibration_reminder: false,
         }
     }
 

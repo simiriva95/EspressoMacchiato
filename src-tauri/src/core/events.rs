@@ -19,6 +19,8 @@ pub struct StatusSnapshot {
     pub last_poke_error: Option<String>,
     pub next_poke_in_secs: Option<u64>,
     pub remaining_secs: Option<u64>,
+    /// Total seconds of the current timed activation (for progress rings).
+    pub duration_total_secs: Option<u64>,
     pub idle_source: String,
     pub degradations: Vec<Degradation>,
 }

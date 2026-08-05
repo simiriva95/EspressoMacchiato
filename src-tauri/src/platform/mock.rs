@@ -33,6 +33,7 @@ pub struct MockState {
     pub battery_percent: Option<f32>,
     pub screen_locked: Option<bool>,
     pub process_running: bool,
+    pub mic_in_use: Option<bool>,
 }
 
 impl Default for MockState {
@@ -54,6 +55,7 @@ impl Default for MockState {
             battery_percent: Some(80.0),
             screen_locked: Some(false),
             process_running: true,
+            mic_in_use: Some(false),
         }
     }
 }
@@ -161,6 +163,10 @@ impl ConditionProbe for MockConditionProbe {
 
     fn any_process_running(&self, _names: &[String]) -> bool {
         self.0.lock().unwrap().process_running
+    }
+
+    fn mic_in_use(&self) -> Option<bool> {
+        self.0.lock().unwrap().mic_in_use
     }
 }
 

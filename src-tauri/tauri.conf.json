@@ -20,7 +20,9 @@
         "visible": false,
         "transparent": true,
         "windowEffects": {
-          "effects": ["underWindowBackground"],
+          "effects": [
+            "underWindowBackground"
+          ],
           "radius": 14
         }
       }
@@ -52,6 +54,15 @@
         "files": {
           "/usr/lib/udev/rules.d/99-espressomacchiato-uinput.rules": "../packaging/linux/99-espressomacchiato-uinput.rules"
         }
+      }
+    }
+  },
+  "plugins": {
+    "deep-link": {
+      "desktop": {
+        "schemes": [
+          "espresso"
+        ]
       }
     }
   }

@@ -33,7 +33,8 @@
     "hours_other": "{{count}} ore",
     "untilTime": "Fino a un orario…",
     "untilEndOfDay": "Fino a fine giornata ({{time}})",
-    "untilMeeting": "Fino a fine riunione ({{time}})"
+    "untilMeeting": "Fino a fine riunione ({{time}})",
+    "espressoShot": "☕ Espresso (25 min)"
   },
   "idle": {
     "title": "Contatore di inattività",
@@ -98,7 +99,17 @@
       "countdown": "Tempo rimanente del timer",
       "battery": "Percentuale batteria",
       "watts": "Potenza (W)"
-    }
+    },
+    "autoActivateOnCall": "Attivati da solo quando sono in call",
+    "autoActivateOnCallHelp": "Rileva il microfono in uso; si spegne a fine chiamata.",
+    "menuBarRing": "Anello sull'icona",
+    "ringOff": "No",
+    "ringTimer": "Timer",
+    "ringBattery": "Batteria",
+    "accent": "Colore accento",
+    "hud": "Pillola sul desktop",
+    "hudHelp": "Mini contatore sempre in primo piano, trascinabile. Doppio click per attivare/disattivare.",
+    "sound": "Suono vapore all'attivazione"
   },
   "power": {
     "title": "Energia",
@@ -131,7 +142,9 @@
     "below": "sotto il",
     "overheat": "Avvisami se la batteria scalda troppo",
     "above": "sopra i",
-    "timerExpired": "Avvisami quando il timer scade"
+    "timerExpired": "Avvisami quando il timer scade",
+    "calibration": "Promemoria calibrazione mensile",
+    "calibrationHelp": "Una volta al mese: scarica sotto il 10% e ricarica al 100%."
   },
   "days": {
     "0": "Lun",
@@ -171,5 +184,12 @@
   "common": {
     "dash": "—",
     "saveError": "Salvataggio non riuscito: {{error}}"
+  },
+  "report": {
+    "title": "La tua settimana",
+    "activeTime": "Presenza protetta",
+    "pokes": "Poke",
+    "shots": "Espresso completati oggi",
+    "healthTrend": "Salute batteria (1 mese)"
   }
 }

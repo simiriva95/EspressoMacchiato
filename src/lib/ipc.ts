@@ -88,6 +88,7 @@ export interface AlertsConfig {
   overheat: boolean;
   overheat_celsius: number;
   timer_expired: boolean;
+  calibration_reminder: boolean;
 }
 
 export interface ScheduleWindow {
@@ -108,6 +109,7 @@ export interface ConditionsConfig {
   process_names: string[];
   pause_when_screen_locked: boolean;
   pause_when_input_recent: boolean;
+  auto_activate_on_call: boolean;
 }
 
 export interface Settings {
@@ -125,6 +127,18 @@ export interface Settings {
   onboarding_done: boolean;
   alerts: AlertsConfig;
   menu_bar_metrics: string[]; // subset of countdown|battery|watts, max 2
+  menu_bar_ring: string; // "off" | "timer" | "battery"
+  hud_enabled: boolean;
+  accent: string; // hex
+  sound_on_activate: boolean;
+}
+
+export interface StatsReport {
+  week_active_secs: number;
+  week_pokes: number;
+  shots_today: number;
+  health_now: number | null;
+  health_month_ago: number | null;
 }
 
 export type EngineEvent =
@@ -167,6 +181,7 @@ const demoSettings: Settings = {
     process_names: ["Teams", "teams", "msedge", "chrome"],
     pause_when_screen_locked: false,
     pause_when_input_recent: true,
+    auto_activate_on_call: false,
   },
   autostart: false,
   activate_on_start: false,
@@ -183,8 +198,13 @@ const demoSettings: Settings = {
     overheat: false,
     overheat_celsius: 45,
     timer_expired: false,
+    calibration_reminder: false,
   },
   menu_bar_metrics: [],
+  menu_bar_ring: "timer",
+  hud_enabled: false,
+  accent: "#e8a54c",
+  sound_on_activate: false,
 };
 
 const demoPower: PowerSnapshot = {
@@ -241,6 +261,14 @@ const browserDemo: typeof tauriIpc = {
   onEngineEvent: () => Promise.resolve(() => {}),
   getNextMeetingEnd: () =>
     Promise.resolve(Math.round(Date.now() / 1000) + 45 * 60),
+  getStats: () =>
+    Promise.resolve({
+      week_active_secs: 14 * 3600 + 1200,
+      week_pokes: 812,
+      shots_today: 3,
+      health_now: 94.6,
+      health_month_ago: 95.1,
+    }),
   getPower: () => Promise.resolve(demoPower),
   getPowerHistory: () => Promise.resolve(demoHistory),
   onPowerSample: () => Promise.resolve(() => {}),
@@ -265,6 +293,7 @@ const tauriIpc = {
   /** Unix seconds when the current/imminent meeting ends (macOS EventKit).
    * Rejects when the calendar permission is denied or unavailable. */
   getNextMeetingEnd: () => invoke<number | null>("get_next_meeting_end"),
+  getStats: () => invoke<StatsReport>("get_stats"),
   getPower: () => invoke<PowerSnapshot | null>("get_power"),
   getPowerHistory: () => invoke<PowerSample[]>("get_power_history"),
   onPowerSample: (handler: (s: PowerSample) => void): Promise<UnlistenFn> =>

@@ -167,6 +167,11 @@ struct Engine {
     last_poke_ok: Option<bool>,
     last_poke_error: Option<String>,
     next_poke_at: Option<Instant>,
+    /// Total seconds of the current timed activation (for progress rings).
+    active_total_secs: Option<u64>,
+    /// Edge detector for the call gate (mic in use), same manual-off
+    /// semantics as the schedule edge detector below.
+    last_call_active: bool,
     /// Edge detector for schedule windows: acting on transitions only means
     /// a manual "off" during an open window is honored until it reopens.
     last_schedule_open: bool,
@@ -210,6 +215,8 @@ pub fn start_with_clock(
         last_poke_ok: None,
         last_poke_error: None,
         next_poke_at: None,
+        active_total_secs: None,
+        last_call_active: false,
         last_schedule_open: false,
         now_local,
         on_event,
@@ -271,6 +278,7 @@ impl Engine {
                 if on {
                     let deadline =
                         duration_secs.map(|secs| Instant::now() + Duration::from_secs(secs));
+                    self.active_total_secs = duration_secs;
                     self.activate(reason, deadline);
                 } else {
                     self.deactivate(StopReason::UserToggle);
@@ -367,6 +375,7 @@ impl Engine {
             tracing::warn!("inhibitor release failed: {e}");
         }
         self.next_poke_at = None;
+        self.active_total_secs = None;
         self.state = EngineState::Off { reason };
         self.emit_state();
     }
@@ -411,6 +420,21 @@ impl Engine {
             if Instant::now() >= deadline {
                 self.deactivate(StopReason::TimerExpired);
                 return;
+            }
+        }
+
+        if self.settings.conditions.auto_activate_on_call {
+            if let Some(mic) = self.platform.conditions.mic_in_use() {
+                if mic && !self.last_call_active && !self.state.is_on() {
+                    self.enter_running(ActivationReason::Call, None);
+                } else if !mic
+                    && self.last_call_active
+                    && self.state.is_on()
+                    && self.state.activation_reason() == Some(ActivationReason::Call)
+                {
+                    self.deactivate(StopReason::CallEnded);
+                }
+                self.last_call_active = mic;
             }
         }
 
@@ -589,6 +613,7 @@ impl Engine {
                 .state
                 .deadline()
                 .map(|d| d.saturating_duration_since(now).as_secs()),
+            duration_total_secs: self.active_total_secs,
             idle_source: self.platform.idle.source().to_string(),
             degradations: self.degradations.clone(),
         }
@@ -1015,5 +1040,61 @@ mod tests {
         let status = h.status().await.unwrap();
         assert_eq!(status.state, "active");
         assert_eq!(status.state_detail, "Schedule");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn call_gate_activates_and_releases_with_the_mic() {
+        let mut settings = EngineSettings::default();
+        settings.conditions.auto_activate_on_call = true;
+        let (h, m, _) = start_engine_with(settings);
+        m.lock().unwrap().mic_in_use = Some(false);
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "off");
+
+        m.lock().unwrap().mic_in_use = Some(true);
+        advance(10).await;
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "active");
+        assert_eq!(status.state_detail, "Call");
+
+        m.lock().unwrap().mic_in_use = Some(false);
+        advance(10).await;
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "off");
+        assert_eq!(status.state_detail, "CallEnded");
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn manual_off_during_call_is_honored() {
+        let mut settings = EngineSettings::default();
+        settings.conditions.auto_activate_on_call = true;
+        let (h, m, _) = start_engine_with(settings);
+        m.lock().unwrap().mic_in_use = Some(true);
+        advance(10).await;
+        assert_eq!(h.status().await.unwrap().state, "active");
+
+        h.set_active(false, ActivationReason::Manual, None);
+        advance(60).await;
+        assert_eq!(
+            h.status().await.unwrap().state,
+            "off",
+            "same call, no reactivation after a manual off"
+        );
+    }
+
+    #[tokio::test(start_paused = true)]
+    async fn manual_activation_survives_call_end() {
+        let mut settings = EngineSettings::default();
+        settings.conditions.auto_activate_on_call = true;
+        let (h, m, _) = start_engine_with(settings);
+        m.lock().unwrap().mic_in_use = Some(true);
+        h.set_active(true, ActivationReason::Manual, None);
+        advance(10).await;
+
+        m.lock().unwrap().mic_in_use = Some(false);
+        advance(10).await;
+        let status = h.status().await.unwrap();
+        assert_eq!(status.state, "active", "manual runs outlive the call");
+        assert_eq!(status.state_detail, "Manual");
     }
 }

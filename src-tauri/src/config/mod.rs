@@ -48,6 +48,8 @@ pub struct ConditionsConfig {
     pub process_names: Vec<String>,
     pub pause_when_screen_locked: bool,
     pub pause_when_input_recent: bool,
+    /// Auto-activate while the microphone is in use (you're in a call).
+    pub auto_activate_on_call: bool,
 }
 
 impl Default for ConditionsConfig {
@@ -59,6 +61,7 @@ impl Default for ConditionsConfig {
             process_names: defaults::suggested_process_names(),
             pause_when_screen_locked: false,
             pause_when_input_recent: defaults::PAUSE_WHEN_INPUT_RECENT,
+            auto_activate_on_call: false,
         }
     }
 }
@@ -73,6 +76,8 @@ pub struct AlertsConfig {
     pub overheat: bool,
     pub overheat_celsius: f32,
     pub timer_expired: bool,
+    /// Monthly battery-calibration reminder (battery coach).
+    pub calibration_reminder: bool,
 }
 
 impl Default for AlertsConfig {
@@ -85,6 +90,7 @@ impl Default for AlertsConfig {
             overheat: false,
             overheat_celsius: 45.0,
             timer_expired: false,
+            calibration_reminder: false,
         }
     }
 }
@@ -111,6 +117,14 @@ pub struct Settings {
     /// macOS menu bar compact text: subset of "countdown" | "battery" |
     /// "watts", at most two (spec P3).
     pub menu_bar_metrics: Vec<String>,
+    /// Progress ring around the tray cup: "off" | "timer" | "battery".
+    pub menu_bar_ring: String,
+    /// Floating always-on-top countdown pill.
+    pub hud_enabled: bool,
+    /// UI accent color, hex (theme swatches).
+    pub accent: String,
+    /// Steam hiss on activation.
+    pub sound_on_activate: bool,
 }
 
 impl Default for Settings {
@@ -130,6 +144,10 @@ impl Default for Settings {
             onboarding_done: false,
             alerts: AlertsConfig::default(),
             menu_bar_metrics: Vec::new(),
+            menu_bar_ring: "timer".into(),
+            hud_enabled: false,
+            accent: "#e8a54c".into(),
+            sound_on_activate: false,
         }
     }
 }

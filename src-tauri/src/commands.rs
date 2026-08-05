@@ -127,6 +127,36 @@ pub fn get_power_history(hub: State<'_, crate::PowerHub>) -> Vec<crate::PowerSam
     hub.history.lock().unwrap().iter().cloned().collect()
 }
 
+#[derive(serde::Serialize)]
+pub struct StatsReport {
+    pub week_active_secs: u64,
+    pub week_pokes: u64,
+    pub shots_today: u32,
+    pub health_now: Option<f32>,
+    pub health_month_ago: Option<f32>,
+}
+
+/// Weekly aggregates for the report card and the espresso-shot chip.
+#[tauri::command]
+pub fn get_stats(
+    hub: State<'_, crate::StatsHub>,
+    power: State<'_, crate::PowerHub>,
+) -> StatsReport {
+    let stats = hub.stats.lock().unwrap();
+    StatsReport {
+        week_active_secs: stats.week_active_secs,
+        week_pokes: stats.week_pokes,
+        shots_today: stats.shots_today,
+        health_now: power
+            .latest
+            .lock()
+            .unwrap()
+            .as_ref()
+            .and_then(|s| s.health_percent),
+        health_month_ago: stats.health_a_month_ago(),
+    }
+}
+
 /// Single write path for all settings: sanitize, apply to the engine and
 /// the OS (hotkey, autostart), persist (debounced). Returns the sanitized
 /// settings so the UI reflects clamping.
@@ -144,6 +174,16 @@ pub fn update_settings(
     new.menu_bar_metrics.truncate(2);
     new.alerts.charge_target_percent = new.alerts.charge_target_percent.clamp(1, 100);
     new.alerts.low_battery_percent = new.alerts.low_battery_percent.clamp(1, 100);
+    if !matches!(new.menu_bar_ring.as_str(), "off" | "timer" | "battery") {
+        new.menu_bar_ring = "timer".into();
+    }
+    // Accent must be a plain hex color (it lands in a CSS custom property).
+    let accent_ok = new.accent.len() == 7
+        && new.accent.starts_with('#')
+        && new.accent[1..].chars().all(|c| c.is_ascii_hexdigit());
+    if !accent_ok {
+        new.accent = "#e8a54c".into();
+    }
 
     let old = state.settings.lock().unwrap().clone();
 
@@ -171,6 +211,17 @@ pub fn update_settings(
         };
         if let Err(e) = result {
             tracing::warn!("autostart change failed: {e}");
+        }
+    }
+
+    if new.hud_enabled != old.hud_enabled {
+        use tauri::Manager;
+        if let Some(hud) = app.get_webview_window("hud") {
+            if new.hud_enabled {
+                let _ = hud.show();
+            } else {
+                let _ = hud.hide();
+            }
         }
     }
 
