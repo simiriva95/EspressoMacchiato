@@ -102,31 +102,47 @@ fn cup_icon(tint: Option<[u8; 3]>, steam: bool, ring: Option<f64>) -> tauri::ima
         (dx.max(0.0).powi(2) + dy.max(0.0).powi(2)).sqrt() + dx.max(dy).min(0.0) - rad
     };
 
-    // A cup coverage sampler at sub-pixel position.
-    let coverage = |x: f64, y: f64| -> f64 {
-        // Cup body: rounded trapezoid, plus a handle ring on the right,
-        // plus two short steam curls above when active.
-        let body = rounded_rect(x, y, cx - 1.5, 22.0, 8.0, 8.5, 3.0);
+    // A big, legible cup: tapered body (wider at the rim), a hollow so it
+    // reads as a mug, a handle ring on the right, a saucer line, and two
+    // steam curls when active. When a ring is drawn the cup shrinks a touch
+    // to leave room; otherwise it fills the canvas.
+    let scale = if ring.is_some() { 0.82 } else { 1.0 };
+    let sx0 = |x: f64| cx + (x - cx) / scale;
+    let coverage = |px: f64, py: f64| -> f64 {
+        let x = sx0(px);
+        let y = cx + (py - cx) / scale;
+        // Rim (top) wider than base: blend two rounded rects.
+        let rim = rounded_rect(x, y, cx - 1.0, 16.5, 11.5, 3.0, 2.5);
+        let body = rounded_rect(x, y, cx - 1.5, 23.5, 9.5, 8.5, 3.5);
+        let mut d = rim.min(body);
+        // Hollow the coffee surface so it looks like a cup, not a blob.
+        let hollow = rounded_rect(x, y, cx - 1.0, 15.0, 8.5, 1.6, 1.4);
+        d = d.max(-hollow);
+        // Handle.
         let handle = {
-            let d = ((x - (cx + 8.5)).powi(2) + (y - 21.0).powi(2)).sqrt();
-            (d - 5.2).max(2.8 - d)
+            let dd = ((x - (cx + 11.0)).powi(2) + (y - 22.0).powi(2)).sqrt();
+            (dd - 6.0).max(3.3 - dd)
         };
-        let mut d = body.min(handle);
+        d = d.min(handle);
+        // Saucer.
+        let saucer = rounded_rect(x, y, cx - 1.0, 35.5, 13.0, 1.6, 1.6);
+        d = d.min(saucer);
         if steam {
-            let s1 = rounded_rect(x, y, cx - 4.0, 9.0, 1.1, 3.2, 1.1);
-            let s2 = rounded_rect(x, y, cx + 1.5, 8.0, 1.1, 3.2, 1.1);
+            let s1 = rounded_rect(x, y, cx - 4.5, 9.5, 1.2, 3.4, 1.2);
+            let s2 = rounded_rect(x, y, cx + 2.0, 8.5, 1.2, 3.4, 1.2);
             d = d.min(s1).min(s2);
         }
         (0.5 - d).clamp(0.0, 1.0)
     };
 
-    // Progress arc: a stroked circle from 12 o'clock, clockwise, drawn only
-    // for the covered fraction. Sits in the outer margin, clear of the cup.
+    // Progress arc: stroked circle from 12 o'clock, clockwise, drawn for the
+    // covered fraction. A full circle (fraction 1.0) reads as "active,
+    // indefinitely" — always something to see when on.
     let arc = |x: f64, y: f64, fraction: f64| -> f64 {
         let dx = x - cx;
         let dy = y - cx;
         let dist = (dx * dx + dy * dy).sqrt();
-        let band = 1.4 - (dist - 20.0).abs(); // ring at radius 20, ~2.8 wide
+        let band = 1.6 - (dist - 20.4).abs(); // ring at radius ~20.4, ~3.2 wide
         if band <= 0.0 {
             return 0.0;
         }
@@ -330,9 +346,14 @@ pub fn sync(app: &AppHandle, status: &StatusSnapshot) {
         .tray
         .set_tooltip(Some(format!("EspressoMacchiato — {label}")));
 
-    // Progress ring: timer remaining (when a timed run is active) or
-    // battery charge, per the menu_bar_ring setting.
-    let ring = {
+    // Progress ring. When the engine is on there is ALWAYS a ring: a timed
+    // run drains it, battery mode tracks charge, and an indefinite /
+    // scheduled run shows a full circle — so "active" is always legible in
+    // the menu bar, not just when a countdown happens to be running.
+    let on = status.state != "off";
+    let ring = if !on {
+        None
+    } else {
         let mode = app
             .state::<AppState>()
             .settings
@@ -340,17 +361,26 @@ pub fn sync(app: &AppHandle, status: &StatusSnapshot) {
             .unwrap()
             .menu_bar_ring
             .clone();
-        match mode.as_str() {
-            "timer" => status
-                .remaining_secs
-                .zip(status.duration_total_secs)
-                .filter(|(_, total)| *total > 0)
-                .map(|(remaining, total)| remaining as f64 / total as f64),
+        let fraction = match mode.as_str() {
+            "off" => None,
             "battery" => app
                 .try_state::<crate::PowerHub>()
                 .and_then(|hub| hub.latest.lock().unwrap().as_ref().and_then(|s| s.percent))
                 .map(|p| f64::from(p) / 100.0),
-            _ => None,
+            // "timer" (default): countdown fraction if a timed run, else full.
+            _ => status
+                .remaining_secs
+                .zip(status.duration_total_secs)
+                .filter(|(_, total)| *total > 0)
+                .map(|(remaining, total)| remaining as f64 / total as f64)
+                .or(Some(1.0)),
+        };
+        // "off" mode means no ring at all; every other mode shows at least a
+        // full circle while on.
+        if mode == "off" {
+            None
+        } else {
+            fraction.or(Some(1.0))
         }
     };
 
