@@ -132,42 +132,44 @@ fn cup_icon_phase(
         (dx.max(0.0).powi(2) + dy.max(0.0).powi(2)).sqrt() + dx.max(dy).min(0.0) - rad
     };
 
-    // A big, legible cup: tapered body (wider at the rim), a hollow so it
-    // reads as a mug, a handle ring on the right, a saucer line, and two
-    // steam curls when active. When a ring is drawn the cup shrinks a touch
-    // to leave room; otherwise it fills the canvas.
-    let scale = if ring.is_some() { 0.82 } else { 1.0 };
+    // A coffee carafe: round bowl, a slanted neck/lid on top, and a tubular
+    // handle on the right. The bowl fills with coffee from the bottom to the
+    // `fill` level — the menu-bar feedback. When a ring is drawn everything
+    // shrinks a touch to leave room.
+    let scale = if ring.is_some() { 0.84 } else { 1.0 };
     let sx0 = |x: f64| cx + (x - cx) / scale;
-    // Coffee surface line: fill 1 = near the rim (y≈14), fill 0 = near the
-    // bottom (y≈30). Carving above it leaves just the cup wall.
-    let coffee_surface = fill.map(|f| 30.0 - f.clamp(0.0, 1.0) * 16.0);
+    let bowl_cx = 20.0;
+    let bowl_cy = 25.0;
+    let bowl_r = 13.5;
+    // Coffee surface: fill 1 = top of the bowl, fill 0 = bottom.
+    let coffee_surface = fill.map(|f| {
+        let f = f.clamp(0.0, 1.0);
+        (bowl_cy + bowl_r) - f * (2.0 * bowl_r)
+    });
     let coverage = |px: f64, py: f64| -> f64 {
         let x = sx0(px);
         let y = cx + (py - cx) / scale;
-        // Rim (top) wider than base: blend two rounded rects.
-        let rim = rounded_rect(x, y, cx - 1.0, 16.5, 11.5, 3.0, 2.5);
-        let body = rounded_rect(x, y, cx - 1.5, 23.5, 9.5, 8.5, 3.5);
-        let mut d = rim.min(body);
-        // Hollow the coffee surface so it looks like a cup, not a blob.
-        let hollow = rounded_rect(x, y, cx - 1.0, 15.0, 8.5, 1.6, 1.4);
-        d = d.max(-hollow);
-        // Coffee level: above the surface, carve the interior so only the
-        // ~2px wall remains; below it stays solid (the coffee).
+        // Round bowl.
+        let bowl = ((x - bowl_cx).powi(2) + (y - bowl_cy).powi(2)).sqrt() - bowl_r;
+        let mut d = bowl;
+        // Carve the interior above the coffee line, leaving a ~2px wall.
         if let Some(surface) = coffee_surface {
             if y < surface {
-                let interior = rounded_rect(x, y, cx - 1.5, 23.5, 7.6, 8.5, 3.0);
+                let interior =
+                    ((x - bowl_cx).powi(2) + (y - bowl_cy).powi(2)).sqrt() - (bowl_r - 2.0);
                 d = d.max(-interior);
             }
         }
-        // Handle.
+        // Slanted neck + lid on top of the bowl.
+        let neck = rounded_rect(x, y, bowl_cx, 10.5, 8.5, 3.2, 1.6);
+        d = d.min(neck);
+        // Tubular handle: vertical bar on the right joined to the neck.
         let handle = {
-            let dd = ((x - (cx + 11.0)).powi(2) + (y - 22.0).powi(2)).sqrt();
-            (dd - 6.0).max(3.3 - dd)
+            let vert = rounded_rect(x, y, bowl_cx + 15.0, 20.0, 1.6, 9.0, 1.6);
+            let top = rounded_rect(x, y, bowl_cx + 11.5, 11.0, 4.0, 1.6, 1.6);
+            vert.min(top)
         };
         d = d.min(handle);
-        // Saucer.
-        let saucer = rounded_rect(x, y, cx - 1.0, 35.5, 13.0, 1.6, 1.6);
-        d = d.min(saucer);
         (0.5 - d).clamp(0.0, 1.0)
     };
 
@@ -181,16 +183,16 @@ fn cup_icon_phase(
             let local = (phase + p).fract(); // 0..1 progress up
             let x = sx0(px);
             let y = cx + (py - cx) / scale;
-            // Rises from y≈13 to y≈3, gentle horizontal sway.
-            let base_y = 13.0 - local * 10.0;
+            // Rises from just above the neck (y≈7) upward, gentle sway.
+            let base_y = 7.0 - local * 8.0;
             let sway = (local * std::f64::consts::TAU).sin() * 1.3;
-            let d = rounded_rect(x, y, cx_s + sway, base_y, 1.1, 2.6, 1.1);
+            let d = rounded_rect(x, y, cx_s + sway, base_y, 1.1, 2.4, 1.1);
             let cov = (0.5 - d).clamp(0.0, 1.0);
             // Fade in at the start, out toward the top.
             let fade = (local * 4.0).min(1.0) * (1.0 - local).powf(0.7);
             cov * fade
         };
-        curl(cx - 4.5, 0.0).max(curl(cx + 2.0, 0.5))
+        curl(16.0, 0.0).max(curl(23.0, 0.5))
     };
 
     // Progress arc: stroked circle from 12 o'clock, clockwise, drawn for the
@@ -376,13 +378,7 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
             // Ease toward the target: smooth rise, quick-ish drop on a poke.
             fill += (target_fill - fill) * 0.3;
             phase = (phase + 0.045).fract();
-            let icon = cup_icon_phase(
-                visual.tint,
-                visual.steam,
-                visual.ring,
-                Some(fill),
-                phase,
-            );
+            let icon = cup_icon_phase(visual.tint, visual.steam, visual.ring, Some(fill), phase);
             let _ = handles.tray.set_icon(Some(icon));
             let _ = handles.tray.set_icon_as_template(visual.template);
         }

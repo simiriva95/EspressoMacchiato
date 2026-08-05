@@ -90,17 +90,12 @@ export function PresenceHero({
   return (
     <section aria-label={t("app.name")} className="card p-8">
       <div className="flex flex-col items-center gap-8 sm:flex-row sm:items-center sm:gap-10">
-        {/* Animated brewing cup */}
-        <div className="relative shrink-0" style={{ width: 176, height: 176 }}>
+        {/* Animated brewing carafe */}
+        <div
+          className={`shrink-0 ${flashing ? "poke-flash" : ""}`}
+          style={{ width: 176, height: 176 }}
+        >
           <BrewingCup active={on} fill={fill} color={color} />
-          <div
-            className={`mono absolute inset-x-0 bottom-1 text-center text-lg ${
-              flashing ? "poke-flash" : ""
-            }`}
-            data-testid="idle-value"
-          >
-            {idle !== null ? formatSeconds(idle) : t("common.dash")}
-          </div>
         </div>
 
         {/* State + controls */}
@@ -214,7 +209,12 @@ export function PresenceHero({
       </div>
 
       {/* Mini stat strip */}
-      <div className="mt-7 grid grid-cols-3 gap-3 border-t border-line pt-5 text-center">
+      <div className="mt-7 grid grid-cols-4 gap-3 border-t border-line pt-5 text-center">
+        <MiniStat
+          label={t("idle.title")}
+          value={idle !== null ? formatSeconds(idle) : t("common.dash")}
+          testId="idle-value"
+        />
         <MiniStat
           label={t("idle.nextPoke")}
           value={
@@ -236,10 +236,20 @@ export function PresenceHero({
   );
 }
 
-function MiniStat({ label, value }: { label: string; value: string }) {
+function MiniStat({
+  label,
+  value,
+  testId,
+}: {
+  label: string;
+  value: string;
+  testId?: string;
+}) {
   return (
     <div>
-      <div className="mono text-xl">{value}</div>
+      <div className="mono text-xl" data-testid={testId}>
+        {value}
+      </div>
       <div className="mt-0.5 text-[11px] uppercase tracking-widest text-ink-2">
         {label}
       </div>
