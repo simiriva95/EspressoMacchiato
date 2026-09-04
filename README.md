@@ -46,7 +46,7 @@ The injection is invisible: the cursor does not move and no keystrokes reach you
   <img src="docs/screenshots/dashboard-settings.png" width="410" alt="Settings: poke interval, activity strategy, schedule windows and opt-in gates">
 </p>
 
-<!-- SCREENSHOT: animated GIF of the menu bar tray cup filling with coffee and draining on a poke, ~400px wide -->
+<p align="center"><img src="docs/screenshots/tray-cup.gif" width="400" alt="animated GIF of the menu bar tray cup filling with coffee and draining on a poke, ~400px wide"></p>
 
 ## Tech stack
 
