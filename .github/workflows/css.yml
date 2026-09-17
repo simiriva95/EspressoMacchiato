@@ -1,0 +1,29 @@
+# Il CSS non si lamenta quando è rotto: un blocco lasciato aperto non dà
+# errore, si porta dentro tutto quello che viene dopo e smette di applicarsi.
+# È successo davvero — metà di un foglio finita dentro un @media che nessuno
+# aveva chiuso — e dal browser sembrava solo che mancassero degli stili.
+#
+# Le regole qui sotto non hanno opinioni sullo stile: dicono solo che una cosa
+# è un errore. Il lavoro grosso lo fa il parser, che su un blocco non chiuso
+# fallisce da solo.
+name: CSS
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  stylelint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: >
+          npx --yes stylelint@16 "**/*.{css,scss}"
+          --ignore-pattern "node_modules/**"
+          --ignore-pattern "dist/**"
+          --ignore-pattern "build/**"
+          --ignore-pattern "**/*.min.css"
