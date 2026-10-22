@@ -163,6 +163,10 @@ select {
 .ring-breathe {
   animation: ring-breathe 3.2s ease-in-out infinite;
 }
+html[data-hidden="true"] .steam,
+html[data-hidden="true"] .ring-breathe {
+  animation-play-state: paused;
+}
 
 /* Staggered card entrance on section change. */
 @keyframes rise-in {

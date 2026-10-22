@@ -25,6 +25,7 @@ export function IdleMonitor({ status, pokeSignal = 0, compact = false }: Props) 
 
   useEffect(() => {
     const poll = async () => {
+      if (document.hidden) return; // hidden window: skip, saves CPU
       try {
         setIdle(await ipc.getIdleSeconds());
         setIdleError(null);
