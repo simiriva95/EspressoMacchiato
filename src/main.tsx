@@ -17,6 +17,14 @@ if (
   document.documentElement.dataset.glass = "true";
 }
 
+// Hidden windows (dashboard closed to the tray, HUD off) must not keep the
+// infinite CSS loops ticking: they hold a display link open and cost CPU all day.
+const syncHidden = () => {
+  document.documentElement.dataset.hidden = String(document.hidden);
+};
+syncHidden();
+document.addEventListener("visibilitychange", syncHidden);
+
 ReactDOM.createRoot(document.getElementById("root") as HTMLElement).render(
   <React.StrictMode>
     <App />

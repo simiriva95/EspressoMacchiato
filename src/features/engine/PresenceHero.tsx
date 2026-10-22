@@ -41,7 +41,10 @@ export function PresenceHero({
   const [power, setPower] = useState<PowerSnapshot | null>(null);
 
   useEffect(() => {
-    const poll = () => ipc.getIdleSeconds().then(setIdle, () => setIdle(null));
+    const poll = () => {
+      if (document.hidden) return; // hidden window: skip, saves CPU
+      ipc.getIdleSeconds().then(setIdle, () => setIdle(null));
+    };
     poll();
     const timer = window.setInterval(poll, 1000);
     return () => window.clearInterval(timer);

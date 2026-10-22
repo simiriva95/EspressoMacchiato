@@ -8,6 +8,7 @@ use tauri::tray::{MouseButton, MouseButtonState, TrayIconEvent};
 use tauri::{AppHandle, Manager};
 use tauri_plugin_notification::NotificationExt;
 
+use std::collections::HashMap;
 use std::sync::Mutex;
 
 use crate::core::events::StatusSnapshot;
@@ -20,7 +21,6 @@ struct TrayVisual {
     tint: Option<[u8; 3]>,
     steam: bool,
     ring: Option<f64>,
-    template: bool,
     /// Animate (steam + coffee fill) only while the engine is active.
     animate: bool,
     /// Poke interval in seconds, to turn idle time into a fill level.
@@ -331,22 +331,26 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
         status_item,
         toggle_item,
         battery_item,
-        visual: Mutex::new(TrayVisual {
-            template: true,
-            ..Default::default()
-        }),
+        visual: Mutex::new(TrayVisual::default()),
     });
 
-    // Steam + coffee-fill animation: ~11 fps while active, idle otherwise.
+    // Steam + coffee-fill animation: 5 fps while active, idle otherwise.
     // The cup fills with the OS idle time and empties on each poke — a big,
     // rhythmic, always-legible feedback right in the menu bar.
+    // Every frame costs a PNG encode + a menu-bar redraw in WindowServer, so
+    // keep the rate low and never rasterize the same frame twice: steam loops
+    // over STEAM_PHASES frames (2 s cycle) and fill snaps to FILL_STEPS levels,
+    // so frames are cached until the tint/ring change.
+    const STEAM_PHASES: u32 = 10;
+    const FILL_STEPS: f64 = 24.0;
     let anim_handle = app.clone();
     tauri::async_runtime::spawn(async move {
-        let mut phase = 0.0_f64;
         let mut fill = 0.0_f64;
         let mut frame: u32 = 0;
         let mut target_fill = 0.0_f64;
-        let mut ticker = tokio::time::interval(std::time::Duration::from_millis(90));
+        let mut frames: HashMap<(u8, u8), tauri::image::Image<'static>> = HashMap::new();
+        let mut frames_for = None;
+        let mut ticker = tokio::time::interval(std::time::Duration::from_millis(200));
         loop {
             ticker.tick().await;
             frame = frame.wrapping_add(1);
@@ -358,8 +362,8 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 fill = 0.0;
                 continue; // static frame already set by sync()
             }
-            // Refresh the target fill ~every 900ms from real idle time.
-            if frame.is_multiple_of(10) {
+            // Refresh the target fill every second from real idle time.
+            if frame.is_multiple_of(5) {
                 if let Some(state) = anim_handle.try_state::<AppState>() {
                     if let Ok(idle) = state.engine.idle_seconds().await {
                         let iv = visual.interval_secs.max(1) as f64;
@@ -368,11 +372,30 @@ pub fn create(app: &AppHandle) -> tauri::Result<()> {
                 }
             }
             // Ease toward the target: smooth rise, quick-ish drop on a poke.
-            fill += (target_fill - fill) * 0.3;
-            phase = (phase + 0.045).fract();
-            let icon = cup_icon_phase(visual.tint, visual.steam, visual.ring, Some(fill), phase);
+            fill += (target_fill - fill) * 0.55;
+            let looks = (visual.tint, visual.steam, visual.ring);
+            if frames_for != Some(looks) {
+                frames.clear();
+                frames_for = Some(looks);
+            }
+            let fill_step = (fill * FILL_STEPS).round() as u8;
+            let phase_step = (frame % STEAM_PHASES) as u8;
+            let icon = frames
+                .entry((fill_step, phase_step))
+                .or_insert_with(|| {
+                    cup_icon_phase(
+                        visual.tint,
+                        visual.steam,
+                        visual.ring,
+                        Some(f64::from(fill_step) / FILL_STEPS),
+                        f64::from(phase_step) / f64::from(STEAM_PHASES),
+                    )
+                })
+                .clone();
+            // No set_icon_as_template here: animated states are never template,
+            // and set_icon already clears the flag (calling it again would
+            // redraw the menu bar a second time per frame).
             let _ = handles.tray.set_icon(Some(icon));
-            let _ = handles.tray.set_icon_as_template(visual.template);
         }
     });
 
@@ -477,7 +500,6 @@ pub fn sync(app: &AppHandle, status: &StatusSnapshot) {
         tint,
         steam,
         ring,
-        template,
         animate,
         interval_secs: status.interval_secs,
     };
